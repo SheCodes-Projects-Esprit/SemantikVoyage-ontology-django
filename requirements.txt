@@ -1,0 +1,5 @@
+Django>=5.0,<5.1
+rdflib>=7.0
+requests>=2.31
+groq>=0.4.0
+python-dotenv>=1.0.0
