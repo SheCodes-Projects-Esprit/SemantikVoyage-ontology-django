@@ -121,3 +121,7 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Fuseki config
+FUSEKI_URL = os.getenv('FUSEKI_URL')
+FUSEKI_DATASET = os.getenv('FUSEKI_DATASET')
+FUSEKI_GRAPH = os.getenv('FUSEKI_GRAPH')
