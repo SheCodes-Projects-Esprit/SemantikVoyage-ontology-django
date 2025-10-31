@@ -1,12 +1,12 @@
-from django.shortcuts import render
-
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 from .utils.fuseki import sparql_query
 from .utils.nl_to_sparql import nl_to_sparql
 from .utils.rdf_loader import load_ontology_to_fuseki
 import json
+import requests
 
 def home(request):
     return render(request, 'core/index.html')
@@ -14,9 +14,13 @@ def home(request):
 def load_ontology(request):
     try:
         response = load_ontology_to_fuseki()
-        return JsonResponse({"status": "success", "message": "Ontology loaded into Fuseki."})
+        return JsonResponse({"status": "success", "message": "Ontology loaded into Fuseki successfully."})
+    except FileNotFoundError as e:
+        return JsonResponse({"status": "error", "message": f"File not found: {str(e)}"})
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({"status": "error", "message": f"Connection error with Fuseki: {str(e)}. Make sure Fuseki is running at {settings.FUSEKI_URL}"})
     except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)})
+        return JsonResponse({"status": "error", "message": f"Error loading ontology: {str(e)}"})
 
 @csrf_exempt
 def query_view(request):

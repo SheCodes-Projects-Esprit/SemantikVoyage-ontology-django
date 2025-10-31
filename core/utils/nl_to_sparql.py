@@ -36,9 +36,12 @@ MODEL = "llama3-8b-8192"
 def nl_to_sparql(question: str) -> str:
     question_lower = question.lower().strip()
 
-    # 1. Fallback simple
+    # 1. Fallback simple - cherche une correspondance partielle
     for key, sparql in SIMPLE_QUERIES.items():
-        if key in question_lower:
+        key_lower = key.lower()
+        # Vérifier si la clé est contenue dans la question
+        if key_lower in question_lower:
+            print(f"✅ Match trouvé: '{question}' -> requête pour '{key}'")
             return sparql
 
     # 2. Groq AI (chargement tardif)
