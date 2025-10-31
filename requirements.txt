@@ -6,3 +6,4 @@ torch
 sentence-transformers
 SPARQLWrapper
 python-dotenv
+groq 
