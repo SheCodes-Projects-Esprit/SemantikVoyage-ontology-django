@@ -28,10 +28,21 @@ def query_view(request):
         try:
             sparql = nl_to_sparql(question)
             result = sparql_query(sparql)
+            
+            # Preprocess results for easier template handling
+            processed_results = []
+            for binding in result.get('results', {}).get('bindings', []):
+                row = {}
+                for var in result.get('head', {}).get('vars', []):
+                    row[var] = binding.get(var, {}).get('value', 'N/A')
+                processed_results.append(row)
+            
             return render(request, 'core/results.html', {
                 'question': question,
                 'sparql': sparql,
-                'results': result
+                'results': result,
+                'processed_results': processed_results,
+                'vars': result.get('head', {}).get('vars', [])
             })
         except Exception as e:
             return render(request, 'core/index.html', {'error': str(e)})
