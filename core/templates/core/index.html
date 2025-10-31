@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transport Semantic Query</title>
+    <link rel="stylesheet" href="{% static 'core/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <h1>Transport Semantic Web Query</h1>
+        <p>Ask in natural language (e.g., "Show bus lines in Tunis")</p>
+
+        <form method="post" action="{% url 'query' %}">
+            {% csrf_token %}
+            <input type="text" name="question" placeholder="Your question..." required>
+            <button type="submit">Ask</button>
+        </form>
+
+        <hr>
+        <button onclick="loadOntology()">Load Ontology into Fuseki</button>
+        <p id="load-status"></p>
+
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+    </div>
+
+    <script>
+    function loadOntology() {
+        fetch("{% url 'load_ontology' %}")
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById("load-status").innerText = data.message || data.error;
+            });
+    }
+    </script>
+</body>
+</html>
