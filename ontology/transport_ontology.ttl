@@ -1,0 +1,604 @@
+@prefix : <http://www.transport-ontology.org/travel#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://www.transport-ontology.org/travel> rdf:type owl:Ontology ;
+                                              owl:versionInfo "1.0" .
+
+#################################################################
+#    Object Properties
+#################################################################
+
+:buys rdf:type owl:ObjectProperty ;
+    rdfs:domain :Person ;
+    rdfs:range :Ticket ;
+    rdfs:label "buys" .
+
+:follows rdf:type owl:ObjectProperty ;
+    rdfs:domain :Person ;
+    rdfs:range :Itinerary ;
+    rdfs:label "follows" .
+
+:hasSchedule rdf:type owl:ObjectProperty ;
+    rdfs:domain :Itinerary ;
+    rdfs:range :Schedule ;
+    rdfs:label "hasSchedule" .
+
+:uses rdf:type owl:ObjectProperty ;
+    rdfs:domain :Itinerary ;
+    rdfs:range :Transport ;
+    rdfs:label "uses" .
+
+:manages rdf:type owl:ObjectProperty ;
+    rdfs:domain :Company ;
+    rdfs:range :Transport ;
+    rdfs:label "manages" .
+
+:appliesTo rdf:type owl:ObjectProperty ;
+    rdfs:domain :Schedule ;
+    rdfs:range :Transport ;
+    rdfs:label "appliesTo" .
+
+:basedIn rdf:type owl:ObjectProperty ;
+    rdfs:domain :Company ;
+    rdfs:range :City ;
+    rdfs:label "basedIn" .
+
+:operatesIn rdf:type owl:ObjectProperty ;
+    rdfs:domain :Transport ;
+    rdfs:range :City ;
+    rdfs:label "operatesIn" .
+
+:arrivesAt rdf:type owl:ObjectProperty ;
+    rdfs:domain :Transport ;
+    rdfs:range :Station ;
+    rdfs:label "arrivesAt" .
+
+:departsFrom rdf:type owl:ObjectProperty ;
+    rdfs:domain :Transport ;
+    rdfs:range :Station ;
+    rdfs:label "departsFrom" .
+
+:connectedTo rdf:type owl:ObjectProperty ;
+    rdfs:domain :Station ;
+    rdfs:range :Station ;
+    rdfs:label "connectedTo" .
+
+:operatedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain :Transport ;
+    rdfs:range :Company ;
+    rdfs:label "operatedBy" .
+
+:locatedIn rdf:type owl:ObjectProperty ;
+    rdfs:domain :Station ;
+    rdfs:range :City ;
+    rdfs:label "locatedIn" .
+
+:worksFor rdf:type owl:ObjectProperty ;
+    rdfs:domain :Person ;
+    rdfs:range :Company ;
+    rdfs:label "worksFor" .
+
+:usesTransport rdf:type owl:ObjectProperty ;
+    rdfs:domain :Person ;
+    rdfs:range :Transport ;
+    rdfs:label "usesTransport" .
+
+:validFor rdf:type owl:ObjectProperty ;
+    rdfs:domain :Ticket ;
+    rdfs:range :Transport ;
+    rdfs:label "validFor" .
+
+:ownedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain :Ticket ;
+    rdfs:range :Person ;
+    rdfs:label "ownedBy" .
+
+#################################################################
+#    Data Properties
+#################################################################
+
+### Company Data Properties
+:companyName rdf:type owl:DatatypeProperty ; rdfs:domain :Company ; rdfs:range xsd:string .
+:foundedYear rdf:type owl:DatatypeProperty ; rdfs:domain :Company ; rdfs:range xsd:gYear .
+:numberOfEmployees rdf:type owl:DatatypeProperty ; rdfs:domain :Company ; rdfs:range xsd:integer .
+:headquartersLocation rdf:type owl:DatatypeProperty ; rdfs:domain :Company ; rdfs:range xsd:string .
+:numberOfBusLines rdf:type owl:DatatypeProperty ; rdfs:domain :BusCompany ; rdfs:range xsd:integer .
+:averageBusAge rdf:type owl:DatatypeProperty ; rdfs:domain :BusCompany ; rdfs:range xsd:float .
+:ticketPrice rdf:type owl:DatatypeProperty ; rdfs:domain :BusCompany ; rdfs:range xsd:float .
+:ecoFriendlyFleet rdf:type owl:DatatypeProperty ; rdfs:domain :BusCompany ; rdfs:range xsd:boolean .
+:numberOfLines rdf:type owl:DatatypeProperty ; rdfs:domain :MetroCompany ; rdfs:range xsd:integer .
+:totalTrackLength rdf:type owl:DatatypeProperty ; rdfs:domain :MetroCompany ; rdfs:range xsd:float .
+:automationLevel rdf:type owl:DatatypeProperty ; rdfs:domain :MetroCompany ; rdfs:range xsd:string .
+:dailyPassengers rdf:type owl:DatatypeProperty ; rdfs:domain :MetroCompany ; rdfs:range xsd:integer .
+:numberOfVehicles rdf:type owl:DatatypeProperty ; rdfs:domain :TaxiCompany ; rdfs:range xsd:integer .
+:bookingApp rdf:type owl:DatatypeProperty ; rdfs:domain :TaxiCompany ; rdfs:range xsd:boolean .
+:averageFarePerKm rdf:type owl:DatatypeProperty ; rdfs:domain :TaxiCompany ; rdfs:range xsd:float .
+:serviceType rdf:type owl:DatatypeProperty ; rdfs:domain :TaxiCompany ; rdfs:range xsd:string .
+:numberOfStations rdf:type owl:DatatypeProperty ; rdfs:domain :BikeSharingCompany ; rdfs:range xsd:integer .
+:bikeCount rdf:type owl:DatatypeProperty ; rdfs:domain :BikeSharingCompany ; rdfs:range xsd:integer .
+:subscriptionPrice rdf:type owl:DatatypeProperty ; rdfs:domain :BikeSharingCompany ; rdfs:range xsd:float .
+:electricBikes rdf:type owl:DatatypeProperty ; rdfs:domain :BikeSharingCompany ; rdfs:range xsd:boolean .
+
+### City Data Properties
+:cityName rdf:type owl:DatatypeProperty ; rdfs:domain :City ; rdfs:range xsd:string .
+:population rdf:type owl:DatatypeProperty ; rdfs:domain :City ; rdfs:range xsd:integer .
+:area rdf:type owl:DatatypeProperty ; rdfs:domain :City ; rdfs:range xsd:float .
+:region rdf:type owl:DatatypeProperty ; rdfs:domain :City ; rdfs:range xsd:string .
+:governmentSeat rdf:type owl:DatatypeProperty ; rdfs:domain :CapitalCity ; rdfs:range xsd:boolean .
+:numberOfMinistries rdf:type owl:DatatypeProperty ; rdfs:domain :CapitalCity ; rdfs:range xsd:integer .
+:internationalEmbassies rdf:type owl:DatatypeProperty ; rdfs:domain :CapitalCity ; rdfs:range xsd:integer .
+:annualBudget rdf:type owl:DatatypeProperty ; rdfs:domain :CapitalCity ; rdfs:range xsd:float .
+:suburbanPopulation rdf:type owl:DatatypeProperty ; rdfs:domain :MetropolitanCity ; rdfs:range xsd:integer .
+:publicTransportCoverage rdf:type owl:DatatypeProperty ; rdfs:domain :MetropolitanCity ; rdfs:range xsd:float .
+:numberOfDistricts rdf:type owl:DatatypeProperty ; rdfs:domain :MetropolitanCity ; rdfs:range xsd:integer .
+:averageCommuteTime rdf:type owl:DatatypeProperty ; rdfs:domain :MetropolitanCity ; rdfs:range xsd:float .
+:annualVisitors rdf:type owl:DatatypeProperty ; rdfs:domain :TouristicCity ; rdfs:range xsd:integer .
+:mainAttractions rdf:type owl:DatatypeProperty ; rdfs:domain :TouristicCity ; rdfs:range xsd:string .
+:hotelCount rdf:type owl:DatatypeProperty ; rdfs:domain :TouristicCity ; rdfs:range xsd:integer .
+:coastalCity rdf:type owl:DatatypeProperty ; rdfs:domain :TouristicCity ; rdfs:range xsd:boolean .
+:numberOfFactories rdf:type owl:DatatypeProperty ; rdfs:domain :IndustrialCity ; rdfs:range xsd:integer .
+:mainIndustries rdf:type owl:DatatypeProperty ; rdfs:domain :IndustrialCity ; rdfs:range xsd:string .
+:industrialZoneArea rdf:type owl:DatatypeProperty ; rdfs:domain :IndustrialCity ; rdfs:range xsd:float .
+:pollutionIndex rdf:type owl:DatatypeProperty ; rdfs:domain :IndustrialCity ; rdfs:range xsd:float .
+
+### Itinerary Data Properties
+:itineraryID rdf:type owl:DatatypeProperty ; rdfs:domain :Itinerary ; rdfs:range xsd:string .
+:overallStatus rdf:type owl:DatatypeProperty ; rdfs:domain :Itinerary ; rdfs:range xsd:string .
+:totalCostEstimate rdf:type owl:DatatypeProperty ; rdfs:domain :Itinerary ; rdfs:range xsd:float .
+:totalDurationDays rdf:type owl:DatatypeProperty ; rdfs:domain :Itinerary ; rdfs:range xsd:integer .
+:clientProjectName rdf:type owl:DatatypeProperty ; rdfs:domain :BusinessTrip ; rdfs:range xsd:string .
+:expenseLimit rdf:type owl:DatatypeProperty ; rdfs:domain :BusinessTrip ; rdfs:range xsd:float .
+:purposeCode rdf:type owl:DatatypeProperty ; rdfs:domain :BusinessTrip ; rdfs:range xsd:string .
+:approvalRequired rdf:type owl:DatatypeProperty ; rdfs:domain :BusinessTrip ; rdfs:range xsd:boolean .
+:activityType rdf:type owl:DatatypeProperty ; rdfs:domain :LeisureTrip ; rdfs:range xsd:string .
+:accommodation rdf:type owl:DatatypeProperty ; rdfs:domain :LeisureTrip ; rdfs:range xsd:string .
+:budgetPerDay rdf:type owl:DatatypeProperty ; rdfs:domain :LeisureTrip ; rdfs:range xsd:float .
+:groupSize rdf:type owl:DatatypeProperty ; rdfs:domain :LeisureTrip ; rdfs:range xsd:integer .
+:institution rdf:type owl:DatatypeProperty ; rdfs:domain :EducationalTrip ; rdfs:range xsd:string .
+:courseReference rdf:type owl:DatatypeProperty ; rdfs:domain :EducationalTrip ; rdfs:range xsd:string .
+:creditHours rdf:type owl:DatatypeProperty ; rdfs:domain :EducationalTrip ; rdfs:range xsd:integer .
+:requiredDocumentation rdf:type owl:DatatypeProperty ; rdfs:domain :EducationalTrip ; rdfs:range xsd:string .
+
+### Schedule Data Properties
+:scheduleID rdf:type owl:DatatypeProperty ; rdfs:domain :Schedule ; rdfs:range xsd:string .
+:effectiveDate rdf:type owl:DatatypeProperty ; rdfs:domain :Schedule ; rdfs:range xsd:date .
+:isPublic rdf:type owl:DatatypeProperty ; rdfs:domain :Schedule ; rdfs:range xsd:boolean .
+:routeName rdf:type owl:DatatypeProperty ; rdfs:domain :Schedule ; rdfs:range xsd:string .
+:firstRunTime rdf:type owl:DatatypeProperty ; rdfs:domain :DailySchedule ; rdfs:range xsd:time .
+:lastRunTime rdf:type owl:DatatypeProperty ; rdfs:domain :DailySchedule ; rdfs:range xsd:time .
+:frequencyMinutes rdf:type owl:DatatypeProperty ; rdfs:domain :DailySchedule ; rdfs:range xsd:integer .
+:dayOfWeekMask rdf:type owl:DatatypeProperty ; rdfs:domain :DailySchedule ; rdfs:range xsd:integer .
+:season rdf:type owl:DatatypeProperty ; rdfs:domain :SeasonalSchedule ; rdfs:range xsd:string .
+:startDate rdf:type owl:DatatypeProperty ; rdfs:domain :SeasonalSchedule ; rdfs:range xsd:date .
+:endDate rdf:type owl:DatatypeProperty ; rdfs:domain :SeasonalSchedule ; rdfs:range xsd:date .
+:operationalCapacityPercentage rdf:type owl:DatatypeProperty ; rdfs:domain :SeasonalSchedule ; rdfs:range xsd:integer .
+:bookingLeadTimeHours rdf:type owl:DatatypeProperty ; rdfs:domain :OnDemandSchedule ; rdfs:range xsd:integer .
+:serviceWindowStart rdf:type owl:DatatypeProperty ; rdfs:domain :OnDemandSchedule ; rdfs:range xsd:time .
+:serviceWindowEnd rdf:type owl:DatatypeProperty ; rdfs:domain :OnDemandSchedule ; rdfs:range xsd:time .
+:maxWaitTimeMinutes rdf:type owl:DatatypeProperty ; rdfs:domain :OnDemandSchedule ; rdfs:range xsd:integer .
+
+### Person Data Properties
+:hasName rdf:type owl:DatatypeProperty ; rdfs:domain :Person ; rdfs:range xsd:string .
+:hasAge rdf:type owl:DatatypeProperty ; rdfs:domain :Person ; rdfs:range xsd:integer .
+:hasEmail rdf:type owl:DatatypeProperty ; rdfs:domain :Person ; rdfs:range xsd:string .
+:hasPhoneNumber rdf:type owl:DatatypeProperty ; rdfs:domain :Person ; rdfs:range xsd:string .
+:hasRole rdf:type owl:DatatypeProperty ; rdfs:domain :Person ; rdfs:range xsd:string .
+:hasID rdf:type owl:DatatypeProperty ; rdfs:domain :Person ; rdfs:range xsd:string .
+:hasSubscriptionType rdf:type owl:DatatypeProperty ; rdfs:domain :Passager ; rdfs:range xsd:string .
+:hasPreferredTransport rdf:type owl:DatatypeProperty ; rdfs:domain :Passager ; rdfs:range xsd:string .
+:hasLicenseNumber rdf:type owl:DatatypeProperty ; rdfs:domain :Conducteur ; rdfs:range xsd:string .
+:hasExperienceYears rdf:type owl:DatatypeProperty ; rdfs:domain :Conducteur ; rdfs:range xsd:integer .
+:drivesLine rdf:type owl:DatatypeProperty ; rdfs:domain :Conducteur ; rdfs:range xsd:string .
+:hasWorkShift rdf:type owl:DatatypeProperty ; rdfs:domain :Conducteur ; rdfs:range xsd:string .
+:hasBadgeID rdf:type owl:DatatypeProperty ; rdfs:domain :Contrôleur ; rdfs:range xsd:string .
+:hasAssignedZone rdf:type owl:DatatypeProperty ; rdfs:domain :Contrôleur ; rdfs:range xsd:string .
+:hasInspectionCount rdf:type owl:DatatypeProperty ; rdfs:domain :Contrôleur ; rdfs:range xsd:integer .
+:worksForCompany rdf:type owl:DatatypeProperty ; rdfs:domain :Contrôleur ; rdfs:range xsd:string .
+:hasEmployeeID rdf:type owl:DatatypeProperty ; rdfs:domain :EmployéAgence ; rdfs:range xsd:string .
+:hasPosition rdf:type owl:DatatypeProperty ; rdfs:domain :EmployéAgence ; rdfs:range xsd:string .
+:worksAt rdf:type owl:DatatypeProperty ; rdfs:domain :EmployéAgence ; rdfs:range xsd:string .
+
+### Ticket Data Properties
+:hasTicketID rdf:type owl:DatatypeProperty ; rdfs:domain :Ticket ; rdfs:range xsd:string .
+:hasPrice rdf:type owl:DatatypeProperty ; rdfs:domain :Ticket ; rdfs:range xsd:float .
+:hasValidityDuration rdf:type owl:DatatypeProperty ; rdfs:domain :Ticket ; rdfs:range xsd:string .
+:hasPurchaseDate rdf:type owl:DatatypeProperty ; rdfs:domain :Ticket ; rdfs:range xsd:date .
+:hasExpirationDate rdf:type owl:DatatypeProperty ; rdfs:domain :Ticket ; rdfs:range xsd:date .
+:isReducedFare rdf:type owl:DatatypeProperty ; rdfs:domain :Ticket ; rdfs:range xsd:boolean .
+:isUsed rdf:type owl:DatatypeProperty ; rdfs:domain :TicketSimple ; rdfs:range xsd:boolean .
+:hasStartDate rdf:type owl:DatatypeProperty ; rdfs:domain :AbonnementHebdomadaire ; rdfs:range xsd:date .
+:hasEndDate rdf:type owl:DatatypeProperty ; rdfs:domain :AbonnementHebdomadaire ; rdfs:range xsd:date .
+:hasZoneAccess rdf:type owl:DatatypeProperty ; rdfs:domain :AbonnementHebdomadaire ; rdfs:range xsd:string .
+:hasMonth rdf:type owl:DatatypeProperty ; rdfs:domain :AbonnementMensuel ; rdfs:range xsd:string .
+:hasAutoRenewal rdf:type owl:DatatypeProperty ; rdfs:domain :AbonnementMensuel ; rdfs:range xsd:boolean .
+:hasPaymentMethod rdf:type owl:DatatypeProperty ; rdfs:domain :AbonnementMensuel ; rdfs:range xsd:string .
+:hasInstitutionName rdf:type owl:DatatypeProperty ; rdfs:domain :TicketÉtudiant ; rdfs:range xsd:string .
+:hasStudentID rdf:type owl:DatatypeProperty ; rdfs:domain :TicketÉtudiant ; rdfs:range xsd:string .
+:hasAgeCondition rdf:type owl:DatatypeProperty ; rdfs:domain :TicketSenior ; rdfs:range xsd:integer .
+
+### Transport Data Properties
+:Transport_hasLineNumber rdf:type owl:DatatypeProperty ; rdfs:domain :Transport ; rdfs:range xsd:string .
+:Transport_hasCapacity rdf:type owl:DatatypeProperty ; rdfs:domain :Transport ; rdfs:range xsd:integer .
+:Transport_hasSpeed rdf:type owl:DatatypeProperty ; rdfs:domain :Transport ; rdfs:range xsd:float .
+:Transport_hasFrequency rdf:type owl:DatatypeProperty ; rdfs:domain :Transport ; rdfs:range xsd:integer .
+
+### Station Data Properties
+:Station_hasName rdf:type owl:DatatypeProperty ; rdfs:domain :Station ; rdfs:range xsd:string .
+:Station_hasLocation rdf:type owl:DatatypeProperty ; rdfs:domain :Station ; rdfs:range xsd:string .
+:Station_hasAccessibility rdf:type owl:DatatypeProperty ; rdfs:domain :Station ; rdfs:range xsd:boolean .
+
+#################################################################
+#    Classes
+#################################################################
+
+:Person rdf:type owl:Class .
+:Ticket rdf:type owl:Class .
+:Itinerary rdf:type owl:Class .
+:Company rdf:type owl:Class .
+:Schedule rdf:type owl:Class .
+:Transport rdf:type owl:Class .
+:Station rdf:type owl:Class .
+:City rdf:type owl:Class .
+
+### Company Subclasses
+:BusCompany rdf:type owl:Class ; rdfs:subClassOf :Company .
+:MetroCompany rdf:type owl:Class ; rdfs:subClassOf :Company .
+:TaxiCompany rdf:type owl:Class ; rdfs:subClassOf :Company .
+:BikeSharingCompany rdf:type owl:Class ; rdfs:subClassOf :Company .
+
+### City Subclasses
+:CapitalCity rdf:type owl:Class ; rdfs:subClassOf :City .
+:MetropolitanCity rdf:type owl:Class ; rdfs:subClassOf :City .
+:TouristicCity rdf:type owl:Class ; rdfs:subClassOf :City .
+:IndustrialCity rdf:type owl:Class ; rdfs:subClassOf :City .
+
+### Itinerary Subclasses
+:BusinessTrip rdf:type owl:Class ; rdfs:subClassOf :Itinerary .
+:LeisureTrip rdf:type owl:Class ; rdfs:subClassOf :Itinerary .
+:EducationalTrip rdf:type owl:Class ; rdfs:subClassOf :Itinerary .
+
+### Schedule Subclasses
+:DailySchedule rdf:type owl:Class ; rdfs:subClassOf :Schedule .
+:SeasonalSchedule rdf:type owl:Class ; rdfs:subClassOf :Schedule .
+:OnDemandSchedule rdf:type owl:Class ; rdfs:subClassOf :Schedule .
+
+### Person Subclasses
+:Passager rdf:type owl:Class ; rdfs:subClassOf :Person .
+:Conducteur rdf:type owl:Class ; rdfs:subClassOf :Person .
+:Contrôleur rdf:type owl:Class ; rdfs:subClassOf :Person .
+:EmployéAgence rdf:type owl:Class ; rdfs:subClassOf :Person .
+
+### Ticket Subclasses
+:TicketSimple rdf:type owl:Class ; rdfs:subClassOf :Ticket .
+:AbonnementHebdomadaire rdf:type owl:Class ; rdfs:subClassOf :Ticket .
+:AbonnementMensuel rdf:type owl:Class ; rdfs:subClassOf :Ticket .
+:TicketÉtudiant rdf:type owl:Class ; rdfs:subClassOf :Ticket .
+:TicketSenior rdf:type owl:Class ; rdfs:subClassOf :Ticket .
+
+### Transport Subclasses
+:Bus rdf:type owl:Class ; rdfs:subClassOf :Transport .
+:Metro rdf:type owl:Class ; rdfs:subClassOf :Transport .
+:Train rdf:type owl:Class ; rdfs:subClassOf :Transport .
+:Tram rdf:type owl:Class ; rdfs:subClassOf :Transport .
+
+### Station Subclasses
+:BusStop rdf:type owl:Class ; rdfs:subClassOf :Station .
+:MetroStation rdf:type owl:Class ; rdfs:subClassOf :Station .
+:TrainStation rdf:type owl:Class ; rdfs:subClassOf :Station .
+:TramStation rdf:type owl:Class ; rdfs:subClassOf :Station .
+
+#################################################################
+#    Instances
+#################################################################
+
+### City Instances
+:city_Tunis rdf:type :CapitalCity ;
+    :cityName "Tunis" ;
+    :population "1050000"^^xsd:integer ;
+    :area "212.6"^^xsd:float ;
+    :region "Tunis" ;
+    :governmentSeat true ;
+    :numberOfMinistries "20"^^xsd:integer ;
+    :internationalEmbassies "60"^^xsd:integer ;
+    :annualBudget "350000000.0"^^xsd:float .
+
+:city_Sfax rdf:type :MetropolitanCity ;
+    :cityName "Sfax" ;
+    :population "955000"^^xsd:integer ;
+    :area "220"^^xsd:float ;
+    :region "Sfax" ;
+    :suburbanPopulation "300000"^^xsd:integer ;
+    :publicTransportCoverage "75.5"^^xsd:float ;
+    :numberOfDistricts "15"^^xsd:integer ;
+    :averageCommuteTime "35"^^xsd:float .
+
+:city_Sousse rdf:type :TouristicCity ;
+    :cityName "Sousse" ;
+    :population "221530"^^xsd:integer ;
+    :area "45.0"^^xsd:float ;
+    :region "Sousse" ;
+    :annualVisitors "1500000"^^xsd:integer ;
+    :mainAttractions "Port El Kantaoui, Médina de Sousse" ;
+    :hotelCount "80"^^xsd:integer ;
+    :coastalCity true .
+
+:city_Bizerte rdf:type :IndustrialCity ;
+    :cityName "Bizerte" ;
+    :population "142966"^^xsd:integer ;
+    :area "63.0"^^xsd:float ;
+    :region "Bizerte" ;
+    :numberOfFactories "60"^^xsd:integer ;
+    :mainIndustries "construction navale, agroalimentaire" ;
+    :industrialZoneArea "12.5"^^xsd:float ;
+    :pollutionIndex "48.7"^^xsd:float .
+
+### Company Instances
+:busCompany_Tunis rdf:type :BusCompany ;
+    :companyName "Société des Transports de Tunis" ;
+    :foundedYear "1963"^^xsd:gYear ;
+    :numberOfEmployees "4200"^^xsd:integer ;
+    :headquartersLocation "Tunis, Tunisie" ;
+    :numberOfBusLines "85"^^xsd:integer ;
+    :averageBusAge "6.5"^^xsd:float ;
+    :ticketPrice "0.8"^^xsd:float ;
+    :ecoFriendlyFleet true ;
+    :basedIn :city_Tunis .
+
+:metroCompany_Tunis rdf:type :MetroCompany ;
+    :companyName "Transtu Metro" ;
+    :foundedYear "1985"^^xsd:gYear ;
+    :numberOfEmployees "2500"^^xsd:integer ;
+    :headquartersLocation "Tunis" ;
+    :numberOfLines "7"^^xsd:integer ;
+    :totalTrackLength "45.0"^^xsd:float ;
+    :automationLevel "semi-automatique" ;
+    :dailyPassengers "350000"^^xsd:integer ;
+    :basedIn :city_Tunis .
+
+:taxiCompany_YellowCab rdf:type :TaxiCompany ;
+    :companyName "YellowCab Tunis" ;
+    :foundedYear "2002"^^xsd:gYear ;
+    :numberOfEmployees "900"^^xsd:integer ;
+    :headquartersLocation "Tunis" ;
+    :numberOfVehicles "600"^^xsd:integer ;
+    :bookingApp true ;
+    :averageFarePerKm "1.2"^^xsd:float ;
+    :serviceType "privé" ;
+    :basedIn :city_Tunis .
+
+:bikeSharingCompany_VeloGo rdf:type :BikeSharingCompany ;
+    :companyName "VeloGo" ;
+    :foundedYear "2018"^^xsd:gYear ;
+    :numberOfEmployees "120"^^xsd:integer ;
+    :headquartersLocation "La Marsa" ;
+    :numberOfStations "25"^^xsd:integer ;
+    :bikeCount "300"^^xsd:integer ;
+    :subscriptionPrice "25.0"^^xsd:float ;
+    :electricBikes true ;
+    :basedIn :city_Tunis .
+
+### Itinerary Instances
+:ITN001 rdf:type :BusinessTrip ;
+    :itineraryID "I-B-001" ;
+    :overallStatus "Planned" ;
+    :totalCostEstimate "1500.00"^^xsd:float ;
+    :totalDurationDays "4"^^xsd:integer ;
+    :clientProjectName "AlphaCorp Marketing Campaign" ;
+    :expenseLimit "1500.00"^^xsd:float ;
+    :purposeCode "MKT-PR" ;
+    :approvalRequired true .
+
+:ITN002 rdf:type :BusinessTrip ;
+    :itineraryID "I-B-002" ;
+    :overallStatus "Completed" ;
+    :totalCostEstimate "750.00"^^xsd:float ;
+    :totalDurationDays "2"^^xsd:integer ;
+    :clientProjectName "Q3 Budget Review" ;
+    :expenseLimit "800.00"^^xsd:float ;
+    :purposeCode "FIN-AUDIT" ;
+    :approvalRequired false .
+
+:ITN003 rdf:type :LeisureTrip ;
+    :itineraryID "I-L-003" ;
+    :overallStatus "InProgress" ;
+    :totalCostEstimate "2100.00"^^xsd:float ;
+    :totalDurationDays "7"^^xsd:integer ;
+    :activityType "Adventure" ;
+    :accommodation "Mountain View Cabin" ;
+    :budgetPerDay "150.00"^^xsd:float ;
+    :groupSize "3"^^xsd:integer .
+
+:ITN004 rdf:type :LeisureTrip ;
+    :itineraryID "I-L-004" ;
+    :overallStatus "Planned" ;
+    :totalCostEstimate "900.00"^^xsd:float ;
+    :totalDurationDays "5"^^xsd:integer ;
+    :activityType "Culture" ;
+    :accommodation "Historic City Hotel" ;
+    :budgetPerDay "100.00"^^xsd:float ;
+    :groupSize "1"^^xsd:integer .
+
+:ITN005 rdf:type :EducationalTrip ;
+    :itineraryID "I-E-005" ;
+    :overallStatus "Planned" ;
+    :totalCostEstimate "350.00"^^xsd:float ;
+    :totalDurationDays "1"^^xsd:integer ;
+    :institution "City University" ;
+    :courseReference "HIS-301" ;
+    :creditHours "3"^^xsd:integer ;
+    :requiredDocumentation "Passport, Acceptance Letter" .
+
+:ITN006 rdf:type :EducationalTrip ;
+    :itineraryID "I-E-006" ;
+    :overallStatus "Completed" ;
+    :totalCostEstimate "50.00"^^xsd:float ;
+    :totalDurationDays "1"^^xsd:integer ;
+    :institution "Local Museum" ;
+    :courseReference "FIELD-A-4" ;
+    :creditHours "0"^^xsd:integer ;
+    :requiredDocumentation "Student ID" .
+
+### Schedule Instances
+:SCH001 rdf:type :DailySchedule ;
+    :scheduleID "S-D-001" ;
+    :effectiveDate "2026-01-01"^^xsd:date ;
+    :isPublic true ;
+    :routeName "Red Line Express" ;
+    :firstRunTime "06:00:00"^^xsd:time ;
+    :lastRunTime "23:00:00"^^xsd:time ;
+    :frequencyMinutes "15"^^xsd:integer ;
+    :dayOfWeekMask "62"^^xsd:integer .
+
+:SCH002 rdf:type :DailySchedule ;
+    :scheduleID "S-D-002" ;
+    :effectiveDate "2026-01-01"^^xsd:date ;
+    :isPublic false ;
+    :routeName "Employee Shuttle" ;
+    :firstRunTime "00:30:00"^^xsd:time ;
+    :lastRunTime "04:30:00"^^xsd:time ;
+    :frequencyMinutes "60"^^xsd:integer ;
+    :dayOfWeekMask "127"^^xsd:integer .
+
+:SCH003 rdf:type :SeasonalSchedule ;
+    :scheduleID "S-S-003" ;
+    :effectiveDate "2026-06-01"^^xsd:date ;
+    :isPublic true ;
+    :routeName "Coastal Ferry Run" ;
+    :season "Summer" ;
+    :startDate "2026-06-01"^^xsd:date ;
+    :endDate "2026-08-31"^^xsd:date ;
+    :operationalCapacityPercentage "100"^^xsd:integer .
+
+:SCH004 rdf:type :SeasonalSchedule ;
+    :scheduleID "S-S-004" ;
+    :effectiveDate "2025-12-15"^^xsd:date ;
+    :isPublic true ;
+    :routeName "Holiday Shopping Loop" ;
+    :season "Holiday" ;
+    :startDate "2025-12-15"^^xsd:date ;
+    :endDate "2026-01-05"^^xsd:date ;
+    :operationalCapacityPercentage "75"^^xsd:integer .
+
+:SCH005 rdf:type :OnDemandSchedule ;
+    :scheduleID "S-O-005" ;
+    :effectiveDate "2026-03-01"^^xsd:date ;
+    :isPublic true ;
+    :routeName "Airport Connect" ;
+    :bookingLeadTimeHours "24"^^xsd:integer ;
+    :serviceWindowStart "08:00:00"^^xsd:time ;
+    :serviceWindowEnd "22:00:00"^^xsd:time ;
+    :maxWaitTimeMinutes "30"^^xsd:integer .
+
+:SCH006 rdf:type :OnDemandSchedule ;
+    :scheduleID "S-O-006" ;
+    :effectiveDate "2026-01-01"^^xsd:date ;
+    :isPublic false ;
+    :routeName "Emergency Callout" ;
+    :bookingLeadTimeHours "0"^^xsd:integer ;
+    :serviceWindowStart "00:00:00"^^xsd:time ;
+    :serviceWindowEnd "23:59:00"^^xsd:time ;
+    :maxWaitTimeMinutes "10"^^xsd:integer .
+
+### Transport Instances
+:Bus_23 rdf:type :Bus ;
+    :Transport_hasLineNumber "23" ;
+    :Transport_hasCapacity "60"^^xsd:integer ;
+    :Transport_hasSpeed "50.0"^^xsd:float ;
+    :Transport_hasFrequency "15"^^xsd:integer ;
+    :operatesIn :city_Tunis ;
+    :operatedBy :busCompany_Tunis ;
+    :manages :busCompany_Tunis ;
+    :departsFrom :station_BabElKhadhra ;
+    :arrivesAt :station_BenArous ;
+    :appliesTo :SCH001 .
+
+:Metro_L1 rdf:type :Metro ;
+    :Transport_hasLineNumber "L1" ;
+    :Transport_hasCapacity "200"^^xsd:integer ;
+    :Transport_hasSpeed "70.0"^^xsd:float ;
+    :Transport_hasFrequency "10"^^xsd:integer ;
+    :operatesIn :city_Tunis ;
+    :operatedBy :metroCompany_Tunis ;
+    :manages :metroCompany_Tunis ;
+    :departsFrom :station_TunisMarine ;
+    :arrivesAt :station_LaMarsa .
+
+### Station Instances
+:station_BabElKhadhra rdf:type :BusStop ;
+    :Station_hasName "Bab El Khadhra" ;
+    :Station_hasLocation "Centre-ville de Tunis" ;
+    :Station_hasAccessibility true ;
+    :locatedIn :city_Tunis .
+
+:station_BenArous rdf:type :BusStop ;
+    :Station_hasName "Ben Arous" ;
+    :Station_hasLocation "Avenue de la République, Ben Arous" ;
+    :Station_hasAccessibility true ;
+    :locatedIn :city_Tunis .
+
+:station_TunisMarine rdf:type :MetroStation ;
+    :Station_hasName "Tunis Marine" ;
+    :Station_hasLocation "Rue de la République, Tunis" ;
+    :Station_hasAccessibility true ;
+    :locatedIn :city_Tunis ;
+    :connectedTo :station_LaMarsa .
+
+:station_LaMarsa rdf:type :MetroStation ;
+    :Station_hasName "La Marsa Plage" ;
+    :Station_hasLocation "La Marsa" ;
+    :Station_hasAccessibility true ;
+    :locatedIn :city_Tunis ;
+    :connectedTo :station_TunisMarine .
+
+### Person Instances
+:person_AhmedK rdf:type :Passager ;
+    :hasID "P-001" ;
+    :hasName "Ahmed K." ;
+    :hasAge "35"^^xsd:integer ;
+    :hasEmail "ahmed.k@mail.com" ;
+    :hasPhoneNumber "+21650123456" ;
+    :hasRole "Passager" ;
+    :hasSubscriptionType "mensuel" ;
+    :hasPreferredTransport "métro" .
+
+:person_SamiraJ rdf:type :Conducteur ;
+    :hasID "C-001" ;
+    :hasName "Samira J." ;
+    :hasAge "45"^^xsd:integer ;
+    :hasRole "Conducteur" ;
+    :hasLicenseNumber "B-456789" ;
+    :hasExperienceYears "10"^^xsd:integer ;
+    :drivesLine "Bus 23" ;
+    :hasWorkShift "matin" ;
+    :worksFor :busCompany_Tunis .
+
+### Ticket Instances
+:ticket_0001 rdf:type :TicketSimple ;
+    :hasTicketID "T-0001" ;
+    :hasPrice "0.8"^^xsd:float ;
+    :hasPurchaseDate "2025-10-04"^^xsd:date ;
+    :hasExpirationDate "2025-10-04"^^xsd:date ;
+    :isReducedFare false ;
+    :isUsed true ;
+    :ownedBy :person_AhmedK ;
+    :validFor :Bus_23 .
+
+:subscription_Ahmed_Oct rdf:type :AbonnementMensuel ;
+    :hasTicketID "A-M-001" ;
+    :hasPrice "35.0"^^xsd:float ;
+    :hasMonth "Octobre" ;
+    :hasAutoRenewal true ;
+    :hasPaymentMethod "en ligne" ;
+    :ownedBy :person_AhmedK ;
+    :validFor :Metro_L1 .
+
+### Inter-Class Relations
+:person_AhmedK :follows :ITN003 ;
+               :buys :ticket_0001 ;
+               :usesTransport :Metro_L1 .
+
+:ITN003 :hasSchedule :SCH003 ;
+        :uses :Bus_23 .
