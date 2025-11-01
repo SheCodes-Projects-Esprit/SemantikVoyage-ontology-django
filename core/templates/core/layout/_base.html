@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}TRANSPERSO — Personalized Route Planning{% endblock %}</title>
+  {% load static %}
+  {% load dict_filters %}
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+  {% block styles %}{% endblock %}
+</head>
+
+<!-- ADD BACKGROUND HERE -->
+<body style="background: url('{% static 'core/img/buses.png' %}') center/cover no-repeat fixed; min-height: 100vh;">
+  {% block body %}{% endblock %}
+
+  <!-- Load Ontology Script (global) -->
+  <script>
+    function loadOntology(){
+      const statusEl = document.getElementById('load-status');
+      statusEl.textContent = 'Loading ontology...';
+      statusEl.className = 'info';
+      fetch("{% url 'load_ontology' %}")
+        .then(r=>r.json())
+        .then(d=>{
+          if(d.status === 'success'){
+            statusEl.textContent = '' + (d.message || 'Success');
+            statusEl.className = 'info';
+          } else {
+            statusEl.textContent = '' + (d.message || d.error || 'Error');
+            statusEl.className = 'error';
+          }
+        })
+        .catch(()=>{
+          statusEl.textContent = 'Network error. Please try again.';
+          statusEl.className = 'error';
+        });
+    }
+  </script>
+</body>
+</html>

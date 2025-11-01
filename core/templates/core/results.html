@@ -1,42 +1,21 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Results</title>
-    <style>
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        pre { background: #f4f4f4; padding: 10px; }
-    </style>
-</head>
-<body>
-    {% load dict_filters %}  <!-- ADD THIS LINE -->
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+{% load dict_filters %}
 
+{% block title %}Results — TRANSPERSO{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+
+  <div class="container" style="max-width: 1000px; margin: 60px auto; padding: 0 20px;">
     <h2>Question: {{ question }}</h2>
     <h3>Generated SPARQL:</h3>
     <pre>{{ sparql }}</pre>
-
     <h3>Results:</h3>
-    <table>
-        <thead>
-            <tr>
-                {% for var in vars %}
-                    <th>{{ var }}</th>
-                {% endfor %}
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in processed_results %}
-                <tr>
-                    {% for var in vars %}
-                        <td>{{ row|get_item:var }}</td>
-                    {% endfor %}
-                </tr>
-            {% empty %}
-                <tr><td colspan="{{ vars|length }}">No results</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    {% include 'core/partials/_results_table.html' %}
+    <br>
+    <a href="{% url 'home' %}" class="cta-hero" style="display: inline-block; margin-top: 2rem;">← New Question</a>
+  </div>
 
-    <a href="{% url 'home' %}">← New Question</a>
-</body>
-</html>
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}

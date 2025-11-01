@@ -1,0 +1,21 @@
+<section id="query" class="query-section">
+  <h2>Ask a Semantic Question</h2>
+  <p>Example: <em>"Show bus lines in Tunis"</em></p>
+  
+  <form method="post" action="{% url 'query' %}">
+    {% csrf_token %}
+    <input type="text" name="question" placeholder="Your question..." required>
+    <button type="submit">Ask</button>
+  </form>
+
+  <button class="ghost" onclick="loadOntology()">Load Ontology into Fuseki</button>
+  <p id="load-status"></p>
+
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+
+  {% if processed_results %}
+    {% include 'core/partials/_results_table.html' %}
+  {% endif %}
+</section>
