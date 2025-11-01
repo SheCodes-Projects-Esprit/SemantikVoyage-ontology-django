@@ -1,20 +1,36 @@
-<section id="query" class="query-section">
-  <h2>Ask a Semantic Question</h2>
-  <p>Example: <em>"Show bus lines in Tunis"</em></p>
-  
-  <form method="post" action="{% url 'query' %}">
+{% load static %}
+
+<section id="query" class="query-section glass">
+  <!-- Title – Half Black / Half Green + Road Line -->
+  <h2 class="query-title">
+    Ask a Semantic Question
+    <span class="road-underline"></span>
+  </h2>
+
+  <!-- Example -->
+  <p class="query-example">
+    Example: <em>“Show bus lines in Tunis”</em>
+  </p>
+
+  <!-- Form -->
+  <form method="post" action="{% url 'query' %}" class="query-form">
     {% csrf_token %}
-    <input type="text" name="question" placeholder="Your question..." required>
-    <button type="submit">Ask</button>
+    <div class="input-wrapper">
+      <input type="text" name="question" placeholder="Your question..." required autocomplete="off">
+      <!-- Tiny floating icons inside the input -->
+      <div class="input-icons" id="input-icons"></div>
+    </div>
+    <button type="submit" class="cta-btn">Ask</button>
   </form>
 
-  <button class="ghost" onclick="loadOntology()">Load Ontology into Fuseki</button>
-  <p id="load-status"></p>
+  <!-- Load Ontology Button -->
+  <button class="ghost cta-ghost" onclick="loadOntology()">Load Ontology into Fuseki</button>
+  <p id="load-status" class="load-status"></p>
 
+  <!-- Errors / Results -->
   {% if error %}
     <p class="error">{{ error }}</p>
   {% endif %}
-
   {% if processed_results %}
     {% include 'core/partials/_results_table.html' %}
   {% endif %}

@@ -11,33 +11,24 @@
 </head>
 
 <body>
-  <!-- Emoji floating background -->
-  <div class="emoji-bg">
-    <div class="emoji">🚗</div>
-    <div class="emoji">🚌</div>
-    <div class="emoji">🚑</div>
-    <div class="emoji">🚕</div>
-    <div class="emoji">🚋</div>
-    <div class="emoji">🚎</div>
-    <div class="emoji">🚚</div>
-  </div>
-
+ 
   {% block body %}{% endblock %}
 
-  <!-- Load Ontology Script (global) -->
+  <!-- Load Ontology Script -->
   <script>
     function loadOntology(){
       const statusEl = document.getElementById('load-status');
+      if (!statusEl) return;
       statusEl.textContent = 'Loading ontology...';
       statusEl.className = 'info';
       fetch("{% url 'load_ontology' %}")
         .then(r=>r.json())
         .then(d=>{
           if(d.status === 'success'){
-            statusEl.textContent = '' + (d.message || 'Success');
+            statusEl.textContent = d.message || 'Success';
             statusEl.className = 'info';
           } else {
-            statusEl.textContent = '' + (d.message || d.error || 'Error');
+            statusEl.textContent = d.message || d.error || 'Error';
             statusEl.className = 'error';
           }
         })
@@ -47,5 +38,8 @@
         });
     }
   </script>
+
+  <!-- REAL EMOJIS — GENTLE FLOATING, SOFT, NOT MOVING ACROSS SCREEN -->
+  
 </body>
 </html>
