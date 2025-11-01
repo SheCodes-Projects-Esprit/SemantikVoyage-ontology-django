@@ -1,0 +1,339 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}Stations — TRANSPERSO{% endblock %}
+
+{% block body %}
+<div class="hills-decoration"></div>
+{% include 'core/partials/_navbar.html' %}
+
+<!-- HERO SECTION -->
+<section class="hero" style="min-height: 40vh; padding: 6rem 2rem;">
+  <div class="hero-container" style="grid-template-columns: 1fr; text-align: center;">
+    <div class="hero-content">
+      <h2 style="font-size: 48px; margin-bottom: 1rem;">
+        <span class="trans">Gestion des</span> <span class="perso">Stations</span>
+      </h2>
+      <p style="font-size: 18px; max-width: 700px; margin: 0 auto 2rem;">
+        Gérez toutes les stations de bus, métro, tram et train.
+      </p>
+      <a href="{% url 'create_station' %}" class="cta-hero" style="padding: 1rem 2.5rem; font-size: 15px;">
+        + Ajouter une Station
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- MESSAGES -->
+{% if messages %}
+  <div style="max-width: 1280px; margin: 2rem auto; padding: 0 2rem;">
+    {% for message in messages %}
+      <div style="background: #d1fae5; color: #065f46; padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1rem; font-weight: 600; box-shadow: var(--shadow-sm);">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<!-- TABLEAU DES STATIONS -->
+<section style="max-width: 1280px; margin: 4rem auto; padding: 0 2rem;">
+  {% if stations %}
+    <div class="table-container">
+      <div class="table-header">
+        <h3>Liste des Stations</h3>
+      </div>
+      <div class="table-wrapper">
+        <table class="station-table">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Ville</th>
+              <th>Type</th>
+              <th>Transports</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for station in stations %}
+              <tr>
+                <td class="station-name">
+                  <strong>{{ station.station_name }}</strong>
+                </td>
+                <td class="city-name">
+                  {{ station.located_in.city_name|default:"—" }}
+                </td>
+                <td class="station-type">
+                  <span class="badge badge-{{ station.get_type|lower }}">
+                    {{ station.get_type }}
+                  </span>
+                </td>
+                <td class="transports-count">
+                  {% with transports=station.get_all_transports %}
+                    {% if transports %}
+                      <span class="transports-list">
+                        {% for t in transports %}
+                          <span class="transport-tag">{{ t.transport_line_number }}</span>{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                      </span>
+                    {% else %}
+                      —
+                    {% endif %}
+                  {% endwith %}
+                </td>
+                <td class="actions">
+                  <a href="{% url 'update_station' station.pk %}" class="btn-edit">Modifier</a>
+                  <a href="{% url 'delete_station' station.pk %}" class="btn-delete">Supprimer</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </div>
+      <p>Aucune station enregistrée pour le moment.</p>
+      <a href="{% url 'create_station' %}" class="cta-hero">+ Créer la première station</a>
+    </div>
+  {% endif %}
+</section>
+
+<!-- CSS INTÉGRÉ -->
+<style>
+  /* ———————— TABLEAU STATIONS — ULTRA-MODERNE ———————— */
+  .table-container {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .table-header {
+    background: linear-gradient(135deg, #1f2937, #374151);
+    color: white;
+    padding: 1.5rem 2rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+
+  .table-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    letter-spacing: -0.5px;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .station-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+  }
+
+  .station-table thead {
+    background: #f8fafc;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.8px;
+    color: #64748b;
+  }
+
+  .station-table th {
+    padding: 1.2rem 1.5rem;
+    text-align: left !important;
+    font-weight: 600;
+  }
+
+  .station-table th:last-child {
+    text-align: center !important;
+  }
+
+  .station-table tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+  }
+
+  .station-table tbody tr:hover {
+    background: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  .station-table td {
+    padding: 1.3rem 1.5rem;
+    color: #475569;
+    vertical-align: middle;
+  }
+
+  .station-name {
+    font-weight: 700;
+    color: #1e293b;
+    font-size: 1.05rem;
+  }
+
+  .city-name {
+    color: #475569;
+    font-weight: 500;
+  }
+
+  .station-type .badge {
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: white;
+    display: inline-block;
+    min-width: 68px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .badge-busstop { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+  .badge-metrostation { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+  .badge-trainstation { background: linear-gradient(135deg, #10b981, #34d399); }
+  .badge-tramstation { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+
+  .transports-count {
+    font-size: 14px;
+  }
+
+  .transports-list {
+    display: inline;
+  }
+
+  .transport-tag {
+    display: inline-block;
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-right: 4px;
+  }
+
+  .actions {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .btn-edit, .btn-delete {
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    margin: 0 4px;
+    transition: all 0.3s ease;
+    display: inline-block;
+  }
+
+  .btn-edit {
+    color: #06b6d4;
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+  }
+
+  .btn-edit:hover {
+    background: #06b6d4;
+    color: white;
+    transform: translateY(-1px);
+  }
+
+  .btn-delete {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .btn-delete:hover {
+    background: #ef4444;
+    color: white;
+    transform: translateY(-1px);
+  }
+
+  /* ÉTAT VIDE */
+  .empty-state {
+    text-align: center;
+    padding: 5rem 2rem;
+    background: white;
+    border-radius: 20px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    background: #e0e7ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .empty-icon svg {
+    width: 40px;
+    height: 40px;
+    color: #6366f1;
+  }
+
+  .empty-state p {
+    font-size: 18px;
+    color: #64748b;
+    margin-bottom: 1.5rem;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .table-header {
+      padding: 1.2rem 1.5rem;
+    }
+    
+    .station-table th,
+    .station-table td {
+      padding: 1rem 1.2rem;
+      font-size: 14px;
+    }
+    
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .btn-edit, .btn-delete {
+      font-size: 12px;
+      padding: 5px 8px;
+      margin: 0;
+    }
+
+    .transports-count {
+      font-size: 13px;
+    }
+
+    .transport-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+    }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+{% include 'core/partials/_footer.html' %}
+{% endblock %}
