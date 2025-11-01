@@ -1,7 +1,18 @@
+{% load static %}
+
 <section class="hero">
-  <div class="hero-content">
-    <h2><span class="trans">TRANS</span><span class="perso">PERSO</span></h2>
-    <p>TRANSPERSO connects passengers, tickets, and transport networks through semantic web intelligence. Get personalized route recommendations tailored to your preferences.</p>
-    <a href="#query" class="cta-hero">Try a Query</a>
+  <!-- Completely redesigned layout inspired by E-Trade Banking - text on left, circular image on right -->
+  <div class="hero-container">
+    <!-- Left side: Text content -->
+    <div class="hero-content">
+      <h2><span class="trans">TRANS</span><span class="perso">PERSO</span></h2>
+      <p>TRANSPERSO connects passengers, tickets, and transport networks through semantic web intelligence. Get personalized route recommendations tailored to your preferences.</p>
+      <a href="#query" class="cta-hero">Try a Query</a>
+    </div>
+
+    <!-- Right side: Circular image with smooth placement -->
+    <div class="hero-visual">
+      <img src="{% static 'core/img/back.png' %}" alt="Transport networks - plane, train, car, ship" class="hero-circle-image">
+    </div>
   </div>
 </section>
