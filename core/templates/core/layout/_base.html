@@ -10,8 +10,18 @@
   {% block styles %}{% endblock %}
 </head>
 
-<!-- ADD BACKGROUND HERE -->
-<body style="background: url('{% static 'core/img/buses.png' %}') center/cover no-repeat fixed; min-height: 100vh;">
+<body>
+  <!-- Emoji floating background -->
+  <div class="emoji-bg">
+    <div class="emoji">🚗</div>
+    <div class="emoji">🚌</div>
+    <div class="emoji">🚑</div>
+    <div class="emoji">🚕</div>
+    <div class="emoji">🚋</div>
+    <div class="emoji">🚎</div>
+    <div class="emoji">🚚</div>
+  </div>
+
   {% block body %}{% endblock %}
 
   <!-- Load Ontology Script (global) -->
