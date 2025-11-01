@@ -602,3 +602,411 @@
 
 :ITN003 :hasSchedule :SCH003 ;
         :uses :Bus_23 .
+
+
+#################################################################
+#    AXIOMS - ONTOLOGY ENRICHMENT
+#################################################################
+
+#################################################################
+#    1. HIÉRARCHIE (Hierarchy) - Additional Subsumption
+#################################################################
+
+# Person hierarchy is already well-defined
+# Adding explicit subsumption for clarity
+:Passager rdfs:subClassOf :Person .
+:Conducteur rdfs:subClassOf :Person .
+:Contrôleur rdfs:subClassOf :Person .
+:EmployéAgence rdfs:subClassOf :Person .
+
+# Transport hierarchy
+:Bus rdfs:subClassOf :Transport .
+:Metro rdfs:subClassOf :Transport .
+:Train rdfs:subClassOf :Transport .
+:Tram rdfs:subClassOf :Transport .
+
+# Station hierarchy
+:BusStop rdfs:subClassOf :Station .
+:MetroStation rdfs:subClassOf :Station .
+:TrainStation rdfs:subClassOf :Station .
+:TramStation rdfs:subClassOf :Station .
+
+#################################################################
+#    2. DISJONCTION (Disjointness)
+#################################################################
+
+### Company Disjointness
+:BusCompany owl:disjointWith :MetroCompany, :TaxiCompany, :BikeSharingCompany .
+:MetroCompany owl:disjointWith :TaxiCompany, :BikeSharingCompany .
+:TaxiCompany owl:disjointWith :BikeSharingCompany .
+
+### City Disjointness
+:CapitalCity owl:disjointWith :IndustrialCity .
+:MetropolitanCity owl:disjointWith :IndustrialCity .
+:TouristicCity owl:disjointWith :IndustrialCity .
+
+### Itinerary Disjointness
+:BusinessTrip owl:disjointWith :LeisureTrip, :EducationalTrip .
+:LeisureTrip owl:disjointWith :EducationalTrip .
+
+### Schedule Disjointness
+:DailySchedule owl:disjointWith :SeasonalSchedule, :OnDemandSchedule .
+:SeasonalSchedule owl:disjointWith :OnDemandSchedule .
+
+### Person Disjointness
+:Passager owl:disjointWith :Conducteur, :Contrôleur, :EmployéAgence .
+:Conducteur owl:disjointWith :Contrôleur, :EmployéAgence .
+:Contrôleur owl:disjointWith :EmployéAgence .
+
+### Ticket Disjointness
+:TicketSimple owl:disjointWith :AbonnementHebdomadaire, :AbonnementMensuel, :TicketÉtudiant, :TicketSenior .
+:AbonnementHebdomadaire owl:disjointWith :AbonnementMensuel, :TicketÉtudiant, :TicketSenior .
+:AbonnementMensuel owl:disjointWith :TicketÉtudiant, :TicketSenior .
+:TicketÉtudiant owl:disjointWith :TicketSenior .
+
+### Transport Disjointness
+:Bus owl:disjointWith :Metro, :Train, :Tram .
+:Metro owl:disjointWith :Train, :Tram .
+:Train owl:disjointWith :Tram .
+
+### Station Disjointness
+:BusStop owl:disjointWith :MetroStation, :TrainStation, :TramStation .
+:MetroStation owl:disjointWith :TrainStation, :TramStation .
+:TrainStation owl:disjointWith :TramStation .
+
+#################################################################
+#    3. RESTRICTIONS (Property Restrictions)
+#################################################################
+
+### Domain and Range Restrictions (already defined, adding existential/universal)
+
+# Person must buy at least one ticket to be a Passager
+:Passager rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :buys ;
+    owl:minCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Conducteur must work for exactly one Company
+:Conducteur rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :worksFor ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Transport must be operated by exactly one Company
+:Transport rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :operatedBy ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Transport must depart from at least one Station
+:Transport rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :departsFrom ;
+    owl:minCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Transport must arrive at at least one Station
+:Transport rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :arrivesAt ;
+    owl:minCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Itinerary must use at least one Transport
+:Itinerary rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :uses ;
+    owl:minCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Ticket must be valid for at least one Transport
+:Ticket rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :validFor ;
+    owl:minCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Ticket must be owned by exactly one Person
+:Ticket rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :ownedBy ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Station must be located in exactly one City
+:Station rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :locatedIn ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Company must be based in exactly one City
+:Company rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :basedIn ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Schedule must apply to at least one Transport
+:Schedule rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :appliesTo ;
+    owl:minCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# BusStop can only be connected to other BusStops
+:BusStop rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :connectedTo ;
+    owl:allValuesFrom :BusStop
+] .
+
+# MetroStation can only be connected to other MetroStations
+:MetroStation rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :connectedTo ;
+    owl:allValuesFrom :MetroStation
+] .
+
+# Bus must be operated by BusCompany
+:Bus rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :operatedBy ;
+    owl:allValuesFrom :BusCompany
+] .
+
+# Metro must be operated by MetroCompany
+:Metro rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :operatedBy ;
+    owl:allValuesFrom :MetroCompany
+] .
+
+# Bus departs from BusStop
+:Bus rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :departsFrom ;
+    owl:allValuesFrom :BusStop
+] .
+
+# Metro departs from MetroStation
+:Metro rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :departsFrom ;
+    owl:allValuesFrom :MetroStation
+] .
+
+#################################################################
+#    4. CARDINALITÉ (Cardinality Constraints)
+#################################################################
+
+### Exact Cardinality
+
+# Person has exactly one name
+:Person rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :hasName ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Person has exactly one age
+:Person rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :hasAge ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Person has exactly one ID
+:Person rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :hasID ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Ticket has exactly one ticket ID
+:Ticket rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :hasTicketID ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Ticket has exactly one price
+:Ticket rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :hasPrice ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Transport has exactly one line number
+:Transport rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :Transport_hasLineNumber ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Station has exactly one name
+:Station rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :Station_hasName ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# City has exactly one name
+:City rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :cityName ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Company has exactly one name
+:Company rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :companyName ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Itinerary has exactly one ID
+:Itinerary rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :itineraryID ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Schedule has exactly one ID
+:Schedule rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :scheduleID ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+### Minimum Cardinality
+
+# Company manages at least one Transport
+:Company rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :manages ;
+    owl:minCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# BusCompany has at least 1 bus line
+:BusCompany rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :numberOfBusLines ;
+    owl:minCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# MetroCompany has at least 1 metro line
+:MetroCompany rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :numberOfLines ;
+    owl:minCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+### Maximum Cardinality
+
+# Person can follow at most 10 itineraries simultaneously
+:Person rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :follows ;
+    owl:maxCardinality "10"^^xsd:nonNegativeInteger
+] .
+
+# Transport operates in at most 5 cities
+:Transport rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :operatesIn ;
+    owl:maxCardinality "5"^^xsd:nonNegativeInteger
+] .
+
+# Person can have at most 1 email
+:Person rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :hasEmail ;
+    owl:maxCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# Person can have at most 1 phone number
+:Person rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :hasPhoneNumber ;
+    owl:maxCardinality "1"^^xsd:nonNegativeInteger
+] .
+
+#################################################################
+#    5. PROPERTY CHARACTERISTICS
+#################################################################
+
+### Symmetric Properties
+:connectedTo rdf:type owl:SymmetricProperty .
+
+### Transitive Properties
+:connectedTo rdf:type owl:TransitiveProperty .
+
+### Functional Properties (at most one value)
+:hasName rdf:type owl:FunctionalProperty .
+:hasAge rdf:type owl:FunctionalProperty .
+:hasID rdf:type owl:FunctionalProperty .
+:hasEmail rdf:type owl:FunctionalProperty .
+:hasTicketID rdf:type owl:FunctionalProperty .
+:cityName rdf:type owl:FunctionalProperty .
+:companyName rdf:type owl:FunctionalProperty .
+:itineraryID rdf:type owl:FunctionalProperty .
+:scheduleID rdf:type owl:FunctionalProperty .
+:operatedBy rdf:type owl:FunctionalProperty .
+:ownedBy rdf:type owl:FunctionalProperty .
+:locatedIn rdf:type owl:FunctionalProperty .
+:basedIn rdf:type owl:FunctionalProperty .
+
+### Inverse Functional Properties
+:hasTicketID rdf:type owl:InverseFunctionalProperty .
+:hasID rdf:type owl:InverseFunctionalProperty .
+
+### Inverse Properties
+:buys owl:inverseOf :ownedBy .
+:manages owl:inverseOf :operatedBy .
+:locatedIn owl:inverseOf [
+    rdf:type owl:ObjectProperty ;
+    rdfs:label "contains"
+] .
+
+#################################################################
+#    6. EQUIVALENCE AND SAME-AS
+#################################################################
+
+# Alternative naming for properties (if needed)
+# Example: :worksFor owl:equivalentProperty :employedBy .
+
+#################################################################
+#    7. ADDITIONAL CONSTRAINTS
+#################################################################
+
+# TicketÉtudiant must have student ID
+:TicketÉtudiant rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :hasStudentID ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# TicketSenior must have age condition
+:TicketSenior rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :hasAgeCondition ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# BusinessTrip must have a client project name
+:BusinessTrip rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :clientProjectName ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
+
+# EducationalTrip must have an institution
+:EducationalTrip rdfs:subClassOf [
+    rdf:type owl:Restriction ;
+    owl:onProperty :institution ;
+    owl:cardinality "1"^^xsd:nonNegativeInteger
+] .
