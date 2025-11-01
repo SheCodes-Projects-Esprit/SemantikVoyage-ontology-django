@@ -102,6 +102,39 @@
       <a href="{% url 'create_station' %}" class="cta-hero">+ Créer la première station</a>
     </div>
   {% endif %}
+  <!-- Ajouter cette section après la liste des stations Django -->
+{% if ontology_available and ontology_stations %}
+<div class="mt-5">
+    <h3>Stations depuis l'Ontologie</h3>
+    <div class="alert alert-info">
+        <small>Données chargées depuis Fuseki</small>
+    </div>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Localisation</th>
+                <th>Accessibilité</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for station in ontology_stations %}
+            <tr>
+                <td>{{ station.name.value }}</td>
+                <td>{{ station.location.value|default:"N/A" }}</td>
+                <td>
+                    {% if station.accessibility.value %}
+                        <span class="badge bg-success">Oui</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Non</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 </section>
 
 <!-- CSS INTÉGRÉ -->
