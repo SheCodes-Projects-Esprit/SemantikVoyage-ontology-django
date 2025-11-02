@@ -1,0 +1,33 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}Confirmer Suppression — TRANSPERSO{% endblock %}
+
+{% block body %}
+<div class="hills-decoration"></div>
+{% include 'core/partials/_navbar.html' %}
+
+<section class="query-section" style="max-width: 500px; margin: 6rem auto; text-align: center; padding: 3rem;">
+  <h2 style="font-size: 32px; margin-bottom: 1.5rem; color: #ef4444;">
+    Supprimer ?
+  </h2>
+  <p style="margin-bottom: 2rem; color: var(--text-secondary);">
+    Êtes-vous sûr de vouloir supprimer <strong>{{ object }}</strong> ?
+    <br><small>Cette action est irréversible.</small>
+  </p>
+
+  <form method="post" style="display: inline-block;">
+    {% csrf_token %}
+    <button type="submit" style="background: #ef4444; color: white; padding: 1rem 2rem; border-radius: 12px; font-weight: 700; border: none; cursor: pointer;">
+      Supprimer
+    </button>
+  </form>
+
+  <a href="{% if type == 'station' %}{% url 'list_stations' %}{% else %}{% url 'list_transports' %}{% endif %}" 
+     class="ghost" style="margin-left: 1rem; padding: 1rem 2rem; display: inline-block;">
+    Annuler
+  </a>
+</section>
+
+{% include 'core/partials/_footer.html' %}
+{% endblock %}

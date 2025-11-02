@@ -1,0 +1,121 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}Opérations Ontologie — TRANSPERSO{% endblock %}
+
+{% block body %}
+<div class="hills-decoration"></div>
+
+{% include 'core/partials/_navbar.html' %}
+
+<!-- HERO SECTION -->
+<section class="hero" style="min-height: 40vh; padding: 6rem 2rem;">
+  <div class="hero-container" style="grid-template-columns: 1fr; text-align: center;">
+    <div class="hero-content">
+      <h2 style="font-size: 48px; margin-bottom: 1rem;">
+        <span class="trans">Opérations</span> <span class="perso">Ontologie</span>
+      </h2>
+      <p style="font-size: 18px; max-width: 700px; margin: 0 auto 2rem;">
+        Interagissez avec votre ontologie de transport en langage naturel
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- MAIN CONTENT -->
+<section style="max-width: 1280px; margin: 4rem auto; padding: 0 2rem;">
+  <!-- CARDS GRID -->
+  <div class="grid-3col" style="gap: 2rem; margin-bottom: 4rem;">
+    <!-- CARD: CONSULTATION -->
+    <div class="glass text-center" style="padding: 2.5rem 2rem; border-radius: 20px; transition: transform 0.3s ease;">
+      <div style="background: linear-gradient(135deg, #8b5cf6, #ec4899); color: white; width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 1.5rem;">
+        🔍
+      </div>
+      <h3 style="margin-bottom: 1rem; color: var(--text-primary);">Consultation</h3>
+      <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 14px; line-height: 1.5;">
+        Posez des questions pour consulter les données de l'ontologie
+      </p>
+      <a href="{% url 'ontology_query' %}" class="cta-btn" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);">
+        Ouvrir
+      </a>
+    </div>
+
+    <!-- CARD: MODIFICATION -->
+    <div class="glass text-center" style="padding: 2.5rem 2rem; border-radius: 20px; transition: transform 0.3s ease;">
+      <div style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 1.5rem;">
+        ✏️
+      </div>
+      <h3 style="margin-bottom: 1rem; color: var(--text-primary);">Modification</h3>
+      <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 14px; line-height: 1.5;">
+        Ajoutez, modifiez ou supprimez des données dans l'ontologie
+      </p>
+      <a href="{% url 'ontology_update' %}" class="cta-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+        Ouvrir
+      </a>
+    </div>
+
+    <!-- CARD: STATUT -->
+    <div class="glass text-center" style="padding: 2.5rem 2rem; border-radius: 20px; transition: transform 0.3s ease;">
+      <div style="background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 1.5rem;">
+        📊
+      </div>
+      <h3 style="margin-bottom: 1rem; color: var(--text-primary);">Statut</h3>
+      <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 14px; line-height: 1.5;">
+        Vérifiez l'état et la configuration de votre ontologie
+      </p>
+      <a href="{% url 'ontology_status' %}" class="cta-btn" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
+        Ouvrir
+      </a>
+    </div>
+  </div>
+
+  <!-- FEATURES SECTION -->
+  <div class="glass" style="padding: 2.5rem; border-radius: 20px;">
+    <h3 style="margin-bottom: 2rem; color: var(--text-primary); text-align: center;">🚀 Fonctionnalités Disponibles</h3>
+    
+    <div class="grid-2col" style="gap: 2rem;">
+      <div>
+        <h4 style="color: #8b5cf6; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+          <span>🔍</span> Consultation (SELECT)
+        </h4>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            Lister stations, bus, métros
+          </li>
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            Rechercher par ville, type
+          </li>
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            Afficher les connexions
+          </li>
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; font-size: 14px;">
+            Voir les passagers et tickets
+          </li>
+        </ul>
+      </div>
+      
+      <div>
+        <h4 style="color: #f59e0b; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+          <span>✏️</span> Modification (UPDATE)
+        </h4>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          <li style="padding: 0.75rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            Ajouter nouvelles stations
+          </li>
+          <li style="padding: 0.75rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            Créer nouvelles lignes
+          </li>
+          <li style="padding: 0.75rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            Modifier les propriétés
+          </li>
+          <li style="padding: 0.75rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px; font-size: 14px;">
+            Supprimer des données
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% include 'core/partials/_footer.html' %}
+{% endblock %}

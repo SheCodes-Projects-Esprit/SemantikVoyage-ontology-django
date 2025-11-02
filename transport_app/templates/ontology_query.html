@@ -1,0 +1,147 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}Requête Ontologie — TRANSPERSO{% endblock %}
+
+{% block body %}
+<div class="hills-decoration"></div>
+
+{% include 'core/partials/_navbar.html' %}
+
+<!-- HERO SECTION -->
+<section class="hero" style="min-height: 30vh; padding: 4rem 2rem;">
+  <div class="hero-container" style="grid-template-columns: 1fr; text-align: center;">
+    <div class="hero-content">
+      <h2 style="font-size: 42px; margin-bottom: 1rem;">
+        <span class="trans">Requête</span> <span class="perso">Ontologie</span>
+      </h2>
+      <p style="font-size: 16px; max-width: 700px; margin: 0 auto 2rem;">
+        Interrogez votre ontologie en langage naturel
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- MESSAGES -->
+{% if messages %}
+  <div style="max-width: 1280px; margin: 2rem auto; padding: 0 2rem;">
+    {% for message in messages %}
+      <div style="background: #d1fae5; color: #065f46; padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1rem; font-weight: 600; box-shadow: var(--shadow-sm);">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<!-- MAIN CONTENT -->
+<section style="max-width: 1280px; margin: 2rem auto; padding: 0 2rem;">
+  <!-- QUERY FORM -->
+  <div class="glass" style="padding: 2rem; border-radius: 20px; margin-bottom: 2rem;">
+    <form method="post">
+      {% csrf_token %}
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">
+          Posez votre question:
+        </label>
+        <input 
+          type="text" 
+          class="form-input" 
+          id="question" 
+          name="question" 
+          placeholder="Ex: Liste tous les bus à Tunis, Affiche les stations de métro, Montre les passagers..." 
+          required
+          style="width: 100%; padding: 1rem; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px; background: rgba(255, 255, 255, 0.8);"
+        >
+      </div>
+      <button type="submit" class="cta-btn" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);">
+        Exécuter la requête
+      </button>
+    </form>
+  </div>
+
+  <!-- SPARQL QUERY -->
+  {% if sparql_query %}
+  <div class="glass" style="padding: 2rem; border-radius: 20px; margin-bottom: 2rem;">
+    <h4 style="margin-bottom: 1rem; color: var(--text-primary);">Requête SPARQL générée:</h4>
+    <pre style="background: rgba(0, 0, 0, 0.05); padding: 1.5rem; border-radius: 12px; overflow-x: auto; font-size: 13px; line-height: 1.4; margin: 0;"><code>{{ sparql_query }}</code></pre>
+  </div>
+  {% endif %}
+
+  <!-- RESULTS -->
+  {% if table_rows %}
+  <div class="glass" style="padding: 2rem; border-radius: 20px; margin-bottom: 2rem;">
+    <h4 style="margin-bottom: 1rem; color: var(--text-primary);">
+      Résultats ({{ results_count }} trouvés):
+    </h4>
+    <table>
+      <thead class="thead-transport">
+        <tr>
+          {% for header in table_headers %}
+          <th>{{ header }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in table_rows %}
+        <tr>
+          {% for cell in row %}
+          <td>{{ cell }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if not table_rows and request.method == 'POST' %}
+  <div class="glass" style="padding: 2rem; border-radius: 20px; margin-bottom: 2rem; text-align: center;">
+    <p style="font-size: 16px; color: var(--text-muted); margin: 0;">
+      Aucun résultat trouvé pour votre requête.
+    </p>
+  </div>
+  {% endif %}
+
+  <!-- EXAMPLES -->
+  <div class="glass" style="padding: 2rem; border-radius: 20px;">
+    <h4 style="margin-bottom: 1.5rem; color: var(--text-primary);">💡 Exemples de questions</h4>
+    
+    <div class="grid-2col" style="gap: 1rem;">
+      <div>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            <strong>"Liste tous les bus"</strong>
+          </li>
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            <strong>"Affiche les stations de métro"</strong>
+          </li>
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            <strong>"Montre les passagers et leurs tickets"</strong>
+          </li>
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; font-size: 14px;">
+            <strong>"Quels sont les conducteurs et leurs compagnies"</strong>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            <strong>"Stations accessibles aux handicapés"</strong>
+          </li>
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            <strong>"Bus dans la ville de Tunis"</strong>
+          </li>
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; margin-bottom: 0.5rem; font-size: 14px;">
+            <strong>"Itinéraires de voyage d'affaires"</strong>
+          </li>
+          <li style="padding: 0.75rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; font-size: 14px;">
+            <strong>"Stations de métro connectées"</strong>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% include 'core/partials/_footer.html' %}
+{% endblock %}

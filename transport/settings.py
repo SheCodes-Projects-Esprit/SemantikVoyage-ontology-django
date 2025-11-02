@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core',
     'itinerary',
+    'transport_app',
 ]
 
 MIDDLEWARE = [
@@ -128,7 +129,14 @@ STATICFILES_DIRS = [BASE_DIR / 'core' / 'static']
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 # Fuseki config
-FUSEKI_URL = os.getenv('FUSEKI_URL')
-FUSEKI_DATASET = os.getenv('FUSEKI_DATASET')
-FUSEKI_GRAPH = os.getenv('FUSEKI_GRAPH')
+FUSEKI_URL = os.getenv('FUSEKI_URL', 'http://localhost:3030')
+FUSEKI_DATASET = os.getenv('FUSEKI_DATASET', 'transport_db')
+FUSEKI_GRAPH = os.getenv('FUSEKI_GRAPH', 'http://www.transport-ontology.org/travel')
+
+# Ajoutez ceci pour debug
+# print(f"Configuration Fuseki:")
+# print(f"FUSEKI_URL: {FUSEKI_URL}")
+# print(f"FUSEKI_DATASET: {FUSEKI_DATASET}")
+# print(f"FUSEKI_GRAPH: {FUSEKI_GRAPH}")

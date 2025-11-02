@@ -15,8 +15,14 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include , re_path
+from django.http import JsonResponse
+
+def block_devtools(request):
+    return JsonResponse({}, status=404)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
+    path('transport/', include('transport_app.urls')),
+    re_path(r'^\.well-known/.*$', block_devtools),  # Bloque tout .well-known
 ]

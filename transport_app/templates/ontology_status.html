@@ -1,0 +1,139 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}Statut Ontologie — TRANSPERSO{% endblock %}
+
+{% block body %}
+<div class="hills-decoration"></div>
+
+{% include 'core/partials/_navbar.html' %}
+
+<!-- HERO SECTION -->
+<section class="hero" style="min-height: 30vh; padding: 4rem 2rem;">
+  <div class="hero-container" style="grid-template-columns: 1fr; text-align: center;">
+    <div class="hero-content">
+      <h2 style="font-size: 42px; margin-bottom: 1rem;">
+        <span class="trans">Statut</span> <span class="perso">Ontologie</span>
+      </h2>
+      <p style="font-size: 16px; max-width: 700px; margin: 0 auto 2rem;">
+        Vérifiez l'état et la configuration de votre ontologie
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- MAIN CONTENT -->
+<section style="max-width: 1280px; margin: 2rem auto; padding: 0 2rem;">
+  <div class="glass" style="padding: 2rem; border-radius: 20px; margin-bottom: 2rem;">
+    <h3 style="margin-bottom: 1.5rem; color: var(--text-primary);">Configuration du Système</h3>
+    
+    <table>
+      <thead class="thead-transport">
+        <tr>
+          <th>Paramètre</th>
+          <th>Valeur</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Ontologie disponible</strong></td>
+          <td>Système de gestion ontologique</td>
+          <td>
+            {% if status.ontology_available %}
+              <span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                ✅ Actif
+              </span>
+            {% else %}
+              <span style="background: #ef4444; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                ❌ Inactif
+              </span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td><strong>URL Fuseki</strong></td>
+          <td>{{ status.fuseki_url|default:"Non configuré" }}</td>
+          <td>
+            {% if status.fuseki_url %}
+              <span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                ✅ Configuré
+              </span>
+            {% else %}
+              <span style="background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                ⚠️ Manquant
+              </span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Dataset</strong></td>
+          <td>{{ status.dataset|default:"Non configuré" }}</td>
+          <td>
+            {% if status.dataset %}
+              <span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                ✅ Configuré
+              </span>
+            {% else %}
+              <span style="background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                ⚠️ Manquant
+              </span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Graph</strong></td>
+          <td style="word-break: break-all;">{{ status.graph|default:"Non configuré" }}</td>
+          <td>
+            {% if status.graph %}
+              <span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                ✅ Configuré
+              </span>
+            {% else %}
+              <span style="background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                ⚠️ Manquant
+              </span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Test de connexion</strong></td>
+          <td>Connexion au serveur Fuseki</td>
+          <td>
+            {% if status.connection_test == 'Réussi' %}
+              <span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                ✅ Réussi
+              </span>
+            {% else %}
+              <span style="background: #ef4444; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                ❌ Échec
+              </span>
+            {% endif %}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ACTIONS -->
+  <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem;">
+    <a href="{% url 'list_stations' %}" class="cta-btn" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);">
+      Retour aux stations
+    </a>
+    <a href="{% url 'ontology_operations' %}" class="cta-btn" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
+      Opérations Ontologie
+    </a>
+    <a href="{% url 'ontology_query' %}" class="cta-btn" style="background: linear-gradient(135deg, #10b981, #059669);">
+      Requêtes
+    </a>
+    <a href="{% url 'ontology_update' %}" class="cta-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+      Modifications
+    </a>
+    <a href="{% url 'sync_ontology' %}" class="cta-btn" style="background: linear-gradient(135deg, #6b7280, #4b5563);">
+      Synchroniser
+    </a>
+  </div>
+</section>
+
+{% include 'core/partials/_footer.html' %}
+{% endblock %}

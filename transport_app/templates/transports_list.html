@@ -1,0 +1,88 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}Transports — TRANSPERSO{% endblock %}
+
+{% block body %}
+<div class="hills-decoration"></div>
+
+{% include 'core/partials/_navbar.html' %}
+
+<!-- HERO SECTION -->
+<section class="hero" style="min-height: 40vh; padding: 6rem 2rem;">
+  <div class="hero-container" style="grid-template-columns: 1fr; text-align: center;">
+    <div class="hero-content">
+      <h2 style="font-size: 48px; margin-bottom: 1rem;">
+        <span class="trans">Gestion des</span> <span class="perso">Transports</span>
+      </h2>
+      <p style="font-size: 18px; max-width: 700px; margin: 0 auto 2rem;">
+        Gérez toutes les lignes de bus, métro, tram et train.
+      </p>
+      <a href="{% url 'create_transport' %}" class="cta-hero" style="padding: 1rem 2.5rem; font-size: 15px;">
+        + Ajouter un Transport
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- MESSAGES -->
+{% if messages %}
+  <div style="max-width: 1280px; margin: 2rem auto; padding: 0 2rem;">
+    {% for message in messages %}
+      <div style="background: #d1fae5; color: #065f46; padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1rem; font-weight: 600; box-shadow: var(--shadow-sm);">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<!-- TABLE SECTION -->
+<section style="max-width: 1280px; margin: 4rem auto; padding: 0 2rem;">
+  {% if transports %}
+  <table>
+    <thead class="thead-transport">
+      <tr>
+        <th>Ligne</th>
+        <th>Type</th>
+        <th>Départ</th>
+        <th>Arrivée</th>
+        <th>Opéré par</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in transports %}
+      <tr>
+        <td><strong>{{ t.transport_line_number }}</strong></td>
+        <td>
+          <span style="background: linear-gradient(135deg, #8b5cf6, #ec4899); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase;">
+            {{ t.get_type }}
+          </span>
+        </td>
+        <td>{{ t.departs_from.station_name|default:"—" }}</td>
+        <td>{{ t.arrives_at.station_name|default:"—" }}</td>
+        <td>{{ t.operated_by.company_name|default:"—" }}</td>
+        <td>
+          <a href="{% url 'update_transport' t.pk t.get_type|lower %}" style="color: #06b6d4; font-weight: 600; font-size: 13px; margin-right: 10px;">
+            Modifier
+          </a>
+          <a href="{% url 'delete_transport' t.pk t.get_type|lower %}" style="color: #ef4444; font-weight: 600; font-size: 13px;">
+            Supprimer
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align: center; padding: 4rem; color: var(--text-muted);">
+    <p style="font-size: 18px;">Aucun transport enregistré.</p>
+    <a href="{% url 'create_transport' %}" class="cta-hero" style="margin-top: 1rem; display: inline-block; padding: 0.9rem 2rem; font-size: 14px;">
+      + Créer le premier transport
+    </a>
+  </div>
+  {% endif %}
+</section>
+
+{% include 'core/partials/_footer.html' %}
+{% endblock %}
