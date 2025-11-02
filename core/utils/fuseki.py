@@ -18,14 +18,14 @@ def sparql_query(sparql):
         if hasattr(settings, 'FUSEKI_GRAPH') and settings.FUSEKI_GRAPH:
             payload['default-graph-uri'] = settings.FUSEKI_GRAPH
         
-        print(f"🔍 Envoi requête à: {FUSEKI_QUERY_URL}")
-        print(f"🔍 Graph: {settings.FUSEKI_GRAPH}")
-        print(f"🔍 Requête SPARQL:\n{sparql}")
+        print(f"[DEBUG] Envoi requete a: {FUSEKI_QUERY_URL}")
+        print(f"[DEBUG] Graph: {settings.FUSEKI_GRAPH}")
+        print(f"[DEBUG] Requete SPARQL:\n{sparql}")
         
         response = requests.post(FUSEKI_QUERY_URL, data=payload, headers=headers, timeout=30)
         
         if response.status_code != 200:
-            print(f"❌ Erreur Fuseki: {response.status_code} - {response.text}")
+            print(f"[ERROR] Erreur Fuseki: {response.status_code} - {response.text}")
             raise Exception(f"Fuseki query failed: {response.status_code} - {response.text}")
         
         return response.json()
@@ -110,7 +110,7 @@ def sparql_update(sparql):
                     data_content = sparql[data_start:data_end+1]
                     # Encapsuler dans GRAPH
                     sparql_with_graph = f"{insert_line} GRAPH <{settings.FUSEKI_GRAPH}> {data_content}"
-                    print(f"🔍 Requête AVEC graphe:\n{sparql_with_graph}")
+                    print(f"[DEBUG] Requete AVEC graphe:\n{sparql_with_graph}")
                     payload = {'update': sparql_with_graph}
                 else:
                     payload = {'update': sparql}
@@ -121,13 +121,13 @@ def sparql_update(sparql):
                 delete_line = lines[0]
                 where_section = '\n'.join(lines[1:])
                 sparql_with_graph = f"{delete_line}\nWITH <{settings.FUSEKI_GRAPH}>\n{where_section}"
-                print(f"🔍 Requête DELETE AVEC graphe:\n{sparql_with_graph}")
+                print(f"[DEBUG] Requete DELETE AVEC graphe:\n{sparql_with_graph}")
                 payload = {'update': sparql_with_graph}
             
             elif sparql.strip().upper().startswith('DELETE') and 'INSERT' in sparql.upper():
                 # Pour DELETE/INSERT (modification), utiliser WITH
                 sparql_with_graph = f"WITH <{settings.FUSEKI_GRAPH}>\n{sparql}"
-                print(f"🔍 Requête MODIFY AVEC graphe:\n{sparql_with_graph}")
+                print(f"[DEBUG] Requete MODIFY AVEC graphe:\n{sparql_with_graph}")
                 payload = {'update': sparql_with_graph}
             
             else:
@@ -135,18 +135,18 @@ def sparql_update(sparql):
         else:
             payload = {'update': sparql}
         
-        print(f"🔍 Envoi UPDATE à: {FUSEKI_UPDATE_URL}")
-        print(f"🔍 Graph: {getattr(settings, 'FUSEKI_GRAPH', 'Non spécifié')}")
+        print(f"[DEBUG] Envoi UPDATE a: {FUSEKI_UPDATE_URL}")
+        print(f"[DEBUG] Graph: {getattr(settings, 'FUSEKI_GRAPH', 'Non specifie')}")
         
         response = requests.post(FUSEKI_UPDATE_URL, data=payload, headers=headers, timeout=30)
         
-        print(f"✅ Réponse UPDATE: {response.status_code}")
+        print(f"[OK] Reponse UPDATE: {response.status_code}")
         if response.status_code != 200:
-            print(f"❌ Erreur UPDATE: {response.text}")
+            print(f"[ERROR] Erreur UPDATE: {response.text}")
             raise Exception(f"Fuseki update failed: {response.status_code} - {response.text}")
         
         # VÉRIFICATION IMMÉDIATE
-        print("🔍 Vérification de l'insertion...")
+        print("[DEBUG] Verification de l'insertion...")
         verification_query = f"""
         PREFIX : <http://www.transport-ontology.org/travel#>
         SELECT (COUNT(*) as ?count) WHERE {{
@@ -159,14 +159,14 @@ def sparql_update(sparql):
             from . import sparql_query
             verification_result = sparql_query(verification_query)
             triple_count = verification_result.get('results', {}).get('bindings', [{}])[0].get('count', {}).get('value', '0')
-            print(f"✅ Nombre de triples dans le graphe après UPDATE: {triple_count}")
+            print(f"[OK] Nombre de triples dans le graphe apres UPDATE: {triple_count}")
         except Exception as e:
-            print(f"⚠️ Impossible de vérifier: {e}")
+            print(f"[WARNING] Impossible de verifier: {e}")
         
         return response
     
     except Exception as e:
-        print(f"❌ Erreur UPDATE: {e}")
+        print(f"[ERROR] Erreur UPDATE: {e}")
         raise Exception(f"Erreur lors de la mise à jour SPARQL: {e}")
 
 

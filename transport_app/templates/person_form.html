@@ -1,0 +1,532 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}{{ title|default:"Créer Personne" }} — TRANSPERSO{% endblock %}
+
+{% block body %}
+<div class="hills-decoration"></div>
+{% include 'core/partials/_navbar.html' %}
+
+<section class="person-form-section">
+  <div class="form-container">
+    <h2 class="form-title">
+      <span class="trans">{{ title|default:"Nouvelle" }}</span> <span class="perso">Personne</span>
+    </h2>
+    <p class="form-subtitle">Remplissez les informations de la personne.</p>
+
+    <form method="post" class="person-form">
+      {% csrf_token %}
+
+      <!-- Champs communs -->
+      <div class="form-section">
+        <h3 class="section-title">Informations communes</h3>
+        <div class="form-grid-2">
+          <div class="form-field">
+            <label class="field-label">
+              {{ form.person_type.label }}
+              {% if form.person_type.field.required %}<span class="required">*</span>{% endif %}
+            </label>
+            <div class="field-wrapper">
+              {{ form.person_type }}
+            </div>
+            {% if form.person_type.errors %}
+              <small class="field-error">{{ form.person_type.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">
+              {{ form.has_id.label }}
+              {% if form.has_id.field.required %}<span class="required">*</span>{% endif %}
+            </label>
+            <div class="field-wrapper">
+              {{ form.has_id }}
+            </div>
+            {% if form.has_id.errors %}
+              <small class="field-error">{{ form.has_id.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">
+              {{ form.has_name.label }}
+              {% if form.has_name.field.required %}<span class="required">*</span>{% endif %}
+            </label>
+            <div class="field-wrapper">
+              {{ form.has_name }}
+            </div>
+            {% if form.has_name.errors %}
+              <small class="field-error">{{ form.has_name.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">
+              {{ form.has_age.label }}
+            </label>
+            <div class="field-wrapper">
+              {{ form.has_age }}
+            </div>
+            {% if form.has_age.errors %}
+              <small class="field-error">{{ form.has_age.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">
+              {{ form.has_email.label }}
+            </label>
+            <div class="field-wrapper">
+              {{ form.has_email }}
+            </div>
+            {% if form.has_email.errors %}
+              <small class="field-error">{{ form.has_email.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">
+              {{ form.has_phone_number.label }}
+            </label>
+            <div class="field-wrapper">
+              {{ form.has_phone_number }}
+            </div>
+            {% if form.has_phone_number.errors %}
+              <small class="field-error">{{ form.has_phone_number.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">
+              {{ form.has_role.label }}
+            </label>
+            <div class="field-wrapper">
+              {{ form.has_role }}
+            </div>
+            {% if form.has_role.errors %}
+              <small class="field-error">{{ form.has_role.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Champs spécifiques Conducteur -->
+      <div class="form-section" id="section_conducteur" style="display: none;">
+        <h3 class="section-title">Informations Conducteur</h3>
+        <div class="form-grid-2">
+          <div class="form-field">
+            <label class="field-label">{{ form.has_license_number.label }}</label>
+            <div class="field-wrapper">{{ form.has_license_number }}</div>
+            {% if form.has_license_number.errors %}
+              <small class="field-error">{{ form.has_license_number.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.has_experience_years.label }}</label>
+            <div class="field-wrapper">{{ form.has_experience_years }}</div>
+            {% if form.has_experience_years.errors %}
+              <small class="field-error">{{ form.has_experience_years.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.drives_line.label }}</label>
+            <div class="field-wrapper">{{ form.drives_line }}</div>
+            {% if form.drives_line.errors %}
+              <small class="field-error">{{ form.drives_line.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.has_work_shift.label }}</label>
+            <div class="field-wrapper">{{ form.has_work_shift }}</div>
+            {% if form.has_work_shift.errors %}
+              <small class="field-error">{{ form.has_work_shift.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.works_for.label }}</label>
+            <div class="field-wrapper">{{ form.works_for }}</div>
+            {% if form.works_for.errors %}
+              <small class="field-error">{{ form.works_for.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Champs spécifiques Contrôleur -->
+      <div class="form-section" id="section_controleur" style="display: none;">
+        <h3 class="section-title">Informations Contrôleur</h3>
+        <div class="form-grid-2">
+          <div class="form-field">
+            <label class="field-label">{{ form.has_badge_id.label }}</label>
+            <div class="field-wrapper">{{ form.has_badge_id }}</div>
+            {% if form.has_badge_id.errors %}
+              <small class="field-error">{{ form.has_badge_id.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.has_assigned_zone.label }}</label>
+            <div class="field-wrapper">{{ form.has_assigned_zone }}</div>
+            {% if form.has_assigned_zone.errors %}
+              <small class="field-error">{{ form.has_assigned_zone.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.has_inspection_count.label }}</label>
+            <div class="field-wrapper">{{ form.has_inspection_count }}</div>
+            {% if form.has_inspection_count.errors %}
+              <small class="field-error">{{ form.has_inspection_count.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.works_for_company.label }}</label>
+            <div class="field-wrapper">{{ form.works_for_company }}</div>
+            {% if form.works_for_company.errors %}
+              <small class="field-error">{{ form.works_for_company.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Champs spécifiques EmployéAgence -->
+      <div class="form-section" id="section_employeagence" style="display: none;">
+        <h3 class="section-title">Informations Employé Agence</h3>
+        <div class="form-grid-2">
+          <div class="form-field">
+            <label class="field-label">{{ form.has_employee_id.label }}</label>
+            <div class="field-wrapper">{{ form.has_employee_id }}</div>
+            {% if form.has_employee_id.errors %}
+              <small class="field-error">{{ form.has_employee_id.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.has_position.label }}</label>
+            <div class="field-wrapper">{{ form.has_position }}</div>
+            {% if form.has_position.errors %}
+              <small class="field-error">{{ form.has_position.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.works_at.label }}</label>
+            <div class="field-wrapper">{{ form.works_at }}</div>
+            {% if form.works_at.errors %}
+              <small class="field-error">{{ form.works_at.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.has_schedule.label }}</label>
+            <div class="field-wrapper">{{ form.has_schedule }}</div>
+            {% if form.has_schedule.errors %}
+              <small class="field-error">{{ form.has_schedule.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Champs spécifiques Passager -->
+      <div class="form-section" id="section_passager" style="display: none;">
+        <h3 class="section-title">Informations Passager</h3>
+        <div class="form-grid-2">
+          <div class="form-field">
+            <label class="field-label">{{ form.has_subscription_type.label }}</label>
+            <div class="field-wrapper">{{ form.has_subscription_type }}</div>
+            {% if form.has_subscription_type.errors %}
+              <small class="field-error">{{ form.has_subscription_type.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">{{ form.has_preferred_transport.label }}</label>
+            <div class="field-wrapper">{{ form.has_preferred_transport }}</div>
+            {% if form.has_preferred_transport.errors %}
+              <small class="field-error">{{ form.has_preferred_transport.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- BOUTONS -->
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">
+          {{ title|default:"Créer"|yesno:"Modifier,Créer" }} la Personne
+        </button>
+        <a href="{% url 'list_persons' %}" class="btn-ghost">
+          Annuler
+        </a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- JavaScript pour afficher/masquer les sections -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const personTypeSelect = document.getElementById('person_type');
+    const sections = {
+      'conducteur': document.getElementById('section_conducteur'),
+      'controleur': document.getElementById('section_controleur'),
+      'employeagence': document.getElementById('section_employeagence'),
+      'passager': document.getElementById('section_passager')
+    };
+
+    function toggleSections() {
+      const selectedType = personTypeSelect.value;
+      // Masquer toutes les sections
+      Object.values(sections).forEach(section => {
+        if (section) section.style.display = 'none';
+      });
+      // Afficher la section sélectionnée
+      if (selectedType && sections[selectedType]) {
+        sections[selectedType].style.display = 'block';
+      }
+    }
+
+    // Écouter les changements
+    personTypeSelect.addEventListener('change', toggleSections);
+    
+    // Appeler une fois au chargement pour initialiser
+    toggleSections();
+  });
+</script>
+
+<!-- CSS INTÉGRÉ -->
+<style>
+  .person-form-section {
+    margin: 6rem auto;
+    max-width: 900px;
+    padding: 0 2rem;
+  }
+
+  .form-container {
+    background: white;
+    border-radius: 24px;
+    padding: 3rem 2.5rem;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--border-light);
+    position: relative;
+    overflow: hidden;
+    animation: fadeInUp 0.7s ease-out;
+  }
+
+  .form-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.03), rgba(6, 182, 212, 0.02));
+    pointer-events: none;
+    border-radius: 24px;
+  }
+
+  .form-title {
+    font-size: 36px;
+    font-weight: 900;
+    margin-bottom: 1rem;
+    text-align: center;
+    letter-spacing: -0.8px;
+  }
+
+  .form-title .trans {
+    color: var(--text-primary);
+  }
+
+  .form-title .perso {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .form-subtitle {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: 2.5rem;
+    font-size: 16px;
+  }
+
+  .person-form {
+    position: relative;
+    z-index: 1;
+  }
+
+  .form-section {
+    margin-bottom: 2.5rem;
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--primary);
+  }
+
+  .form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem 2rem;
+  }
+
+  .form-field {
+    position: relative;
+  }
+
+  .field-label {
+    display: block;
+    margin-bottom: 0.6rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 14px;
+    letter-spacing: 0.3px;
+  }
+
+  .required {
+    color: #ef4444;
+    margin-left: 2px;
+  }
+
+  .field-wrapper {
+    position: relative;
+  }
+
+  .field-wrapper input,
+  .field-wrapper select,
+  .field-wrapper textarea {
+    width: 100%;
+    padding: 1rem 1.2rem;
+    font-size: 15px;
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    outline: none;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    color: var(--text-primary);
+    font-family: inherit;
+  }
+
+  .field-wrapper select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 16px;
+    padding-right: 3rem;
+  }
+
+  .field-wrapper input:focus,
+  .field-wrapper select:focus,
+  .field-wrapper textarea:focus {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15), 0 8px 24px rgba(16, 185, 129, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .field-error {
+    display: block;
+    margin-top: 0.4rem;
+    color: #ef4444;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 3rem;
+    justify-content: center;
+  }
+
+  .btn-primary,
+  .btn-ghost {
+    min-width: 240px;
+    padding: 1.4rem 2.5rem;
+    font-weight: 700;
+    font-size: 16px;
+    text-align: center;
+    border-radius: 16px;
+    text-decoration: none;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    cursor: pointer;
+    border: none;
+    flex: 1;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #10b981, #06b6d4);
+    color: white;
+    border: 2px solid transparent;
+    box-shadow: 0 14px 36px rgba(16, 185, 129, 0.35);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 24px 60px rgba(16, 185, 129, 0.45);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 2px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-3px);
+  }
+
+  @media (max-width: 768px) {
+    .person-form-section {
+      margin: 4rem auto;
+      padding: 0 1.5rem;
+    }
+
+    .form-container {
+      padding: 2.5rem 2rem;
+    }
+
+    .form-title {
+      font-size: 30px;
+    }
+
+    .form-grid-2 {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .form-actions {
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .btn-primary,
+    .btn-ghost {
+      min-width: auto;
+      padding: 1.3rem 2rem;
+    }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+{% include 'core/partials/_footer.html' %}
+{% endblock %}
+

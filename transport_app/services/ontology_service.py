@@ -6,7 +6,7 @@ import requests  # ← AJOUTEZ CET IMPORT MANQUANT
 from transport_app.models import (
     Station, BusStop, MetroStation, TrainStation, TramStation,
     Transport, Bus, Metro, Train, Tram, City, Company,
-    BusCompany, MetroCompany
+    BusCompany, MetroCompany, Person, Conducteur, Contrôleur, EmployéAgence, Passager
 )
 
 # Namespaces
@@ -228,6 +228,109 @@ class OntologySyncService:
         PREFIX : <{ONTOLOGY}>
         DELETE WHERE {{
             <{transport_uri}> ?p ?o .
+        }}
+        """
+        from core.utils.fuseki import sparql_update
+        sparql_update(delete_query)
+    
+    def person_to_rdf(self, person):
+        """Convert Person instance to RDF"""
+        # Utiliser has_id pour créer un URI stable
+        person_id = person.has_id.replace('-', '_').replace(' ', '_')
+        person_uri = URIRef(f"{ONTOLOGY}person_{person_id}")
+        
+        # Déterminer le type de personne
+        if isinstance(person, Conducteur):
+            person_type = ONTOLOGY.Conducteur
+        elif isinstance(person, Contrôleur):
+            person_type = ONTOLOGY.Contrôleur
+        elif isinstance(person, EmployéAgence):
+            person_type = ONTOLOGY.EmployéAgence
+        elif isinstance(person, Passager):
+            person_type = ONTOLOGY.Passager
+        else:
+            person_type = ONTOLOGY.Person
+        
+        # Ajouter les triples de base
+        self.graph.add((person_uri, RDF.type, person_type))
+        self.graph.add((person_uri, ONTOLOGY.hasID, Literal(person.has_id)))
+        self.graph.add((person_uri, ONTOLOGY.hasName, Literal(person.has_name)))
+        
+        if person.has_age:
+            self.graph.add((person_uri, ONTOLOGY.hasAge, Literal(person.has_age, datatype=XSD.integer)))
+        
+        if person.has_email:
+            self.graph.add((person_uri, ONTOLOGY.hasEmail, Literal(person.has_email)))
+        
+        if person.has_phone_number:
+            self.graph.add((person_uri, ONTOLOGY.hasPhoneNumber, Literal(person.has_phone_number)))
+        
+        if person.has_role:
+            self.graph.add((person_uri, ONTOLOGY.hasRole, Literal(person.has_role)))
+        
+        # Propriétés spécifiques Conducteur
+        if isinstance(person, Conducteur):
+            if person.has_license_number:
+                self.graph.add((person_uri, ONTOLOGY.hasLicenseNumber, Literal(person.has_license_number)))
+            if person.has_experience_years:
+                self.graph.add((person_uri, ONTOLOGY.hasExperienceYears, Literal(person.has_experience_years, datatype=XSD.integer)))
+            if person.drives_line:
+                self.graph.add((person_uri, ONTOLOGY.drivesLine, Literal(person.drives_line)))
+            if person.has_work_shift:
+                self.graph.add((person_uri, ONTOLOGY.hasWorkShift, Literal(person.has_work_shift)))
+            if person.works_for:
+                company_uri = URIRef(f"{ONTOLOGY}{person.works_for.__class__.__name__}_{person.works_for.id}")
+                self.graph.add((person_uri, ONTOLOGY.worksFor, company_uri))
+                self._add_company_to_graph(person.works_for)
+        
+        # Propriétés spécifiques Contrôleur
+        elif isinstance(person, Contrôleur):
+            if person.has_badge_id:
+                self.graph.add((person_uri, ONTOLOGY.hasBadgeID, Literal(person.has_badge_id)))
+            if person.has_assigned_zone:
+                self.graph.add((person_uri, ONTOLOGY.hasAssignedZone, Literal(person.has_assigned_zone)))
+            if person.has_inspection_count is not None:
+                self.graph.add((person_uri, ONTOLOGY.hasInspectionCount, Literal(person.has_inspection_count, datatype=XSD.integer)))
+            if person.works_for_company:
+                self.graph.add((person_uri, ONTOLOGY.worksForCompany, Literal(person.works_for_company)))
+        
+        # Propriétés spécifiques EmployéAgence
+        elif isinstance(person, EmployéAgence):
+            if person.has_employee_id:
+                self.graph.add((person_uri, ONTOLOGY.hasEmployeeID, Literal(person.has_employee_id)))
+            if person.has_position:
+                self.graph.add((person_uri, ONTOLOGY.hasPosition, Literal(person.has_position)))
+            if person.works_at:
+                self.graph.add((person_uri, ONTOLOGY.worksAt, Literal(person.works_at)))
+            if person.has_schedule:
+                schedule_uri = URIRef(f"{ONTOLOGY}schedule_{person.has_schedule.id}")
+                self.graph.add((person_uri, ONTOLOGY.hasSchedule, schedule_uri))
+        
+        # Propriétés spécifiques Passager
+        elif isinstance(person, Passager):
+            if person.has_subscription_type:
+                self.graph.add((person_uri, ONTOLOGY.hasSubscriptionType, Literal(person.has_subscription_type)))
+            if person.has_preferred_transport:
+                self.graph.add((person_uri, ONTOLOGY.hasPreferredTransport, Literal(person.has_preferred_transport)))
+        
+        return person_uri
+    
+    def sync_person_to_ontology(self, person):
+        """Sync a single person to ontology"""
+        self.graph = Graph()  # Reset graph
+        self.graph.bind("", ONTOLOGY)
+        person_uri = self.person_to_rdf(person)
+        self._upload_to_fuseki()
+        return person_uri
+    
+    def delete_person_from_ontology(self, person):
+        """Delete person from ontology"""
+        person_id = person.has_id.replace('-', '_').replace(' ', '_')
+        person_uri = f"{ONTOLOGY}person_{person_id}"
+        delete_query = f"""
+        PREFIX : <{ONTOLOGY}>
+        DELETE WHERE {{
+            <{person_uri}> ?p ?o .
         }}
         """
         from core.utils.fuseki import sparql_update

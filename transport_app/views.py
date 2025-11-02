@@ -8,9 +8,9 @@ import json
 from .models import (
     Station, Transport, BusStop, MetroStation, TrainStation, TramStation, 
     Bus, Metro, Train, Tram, City, Company, BusCompany, MetroCompany, 
-    Schedule, DailySchedule
+    Schedule, DailySchedule, Person, Conducteur, Contrôleur, EmployéAgence, Passager
 )
-from .forms import StationForm, TransportForm
+from .forms import StationForm, TransportForm, PersonForm
 
 # Import des services ontologie
 try:
@@ -62,7 +62,7 @@ def list_stations(request):
             ontology_stations = result.get('results', {}).get('bindings', [])
             
         except Exception as e:
-            print(f"❌ Erreur requête ontologie: {e}")
+            print(f"[ERROR] Erreur requete ontologie: {e}")
             messages.warning(request, f"Impossible de charger les données de l'ontologie: {e}")
 
     return render(request, 'list_stations.html', {
@@ -342,14 +342,14 @@ def ontology_update_view(request):
                     generated_sparql = nl_to_sparql(question)
                 
                 if generated_sparql:
-                    print(f"🔍 Requête générée: {generated_sparql}")
+                    print(f"[DEBUG] Requete generee: {generated_sparql}")
                     
                     if action == 'update':
                         try:
                             # Execute UPDATE query
-                            print("🔄 Exécution de la requête UPDATE...")
+                            print("[DEBUG] Execution de la requete UPDATE...")
                             result = sparql_update(generated_sparql)
-                            print(f"✅ UPDATE réussi - Status: {result.status_code}")
+                            print(f"[OK] UPDATE reussi - Status: {result.status_code}")
                             
                             update_result = {
                                 'status': 'success',
@@ -357,16 +357,16 @@ def ontology_update_view(request):
                             }
                             
                         except Exception as e:
-                            print(f"❌ Erreur UPDATE: {e}")
+                            print(f"[ERROR] Erreur UPDATE: {e}")
                             update_result = {
                                 'status': 'error',
                                 'message': f"Erreur lors de l'exécution: {e}"
                             }
                     else:
                         # Execute SELECT query
-                        print("🔍 Exécution de la requête SELECT...")
+                        print("[DEBUG] Execution de la requete SELECT...")
                         results_data = sparql_query(generated_sparql)
-                        print(f"✅ SELECT réussi - {len(results_data.get('results', {}).get('bindings', []))} résultats")
+                        print(f"[OK] SELECT reussi - {len(results_data.get('results', {}).get('bindings', []))} resultats")
                         
                         # Preprocess results
                         table_headers = []
@@ -392,7 +392,7 @@ def ontology_update_view(request):
                 else:
                     messages.error(request, "Impossible de générer la requête SPARQL")
             except Exception as e:
-                print(f"❌ Erreur générale: {e}")
+                print(f"[ERROR] Erreur generale: {e}")
                 update_result = {
                     'status': 'error',
                     'message': f"Erreur: {e}"
@@ -452,3 +452,166 @@ def ontology_status_view(request):
             status['connection_test'] = f'Échec: {e}'
     
     return render(request, 'ontology_status.html', {'status': status})
+
+
+# ==================== PERSONS ====================
+
+def list_persons(request):
+    """List all persons grouped by type"""
+    persons = []
+    for subclass in Person.__subclasses__():
+        qs = subclass.objects.all()
+        for obj in qs:
+            obj.person_type = subclass.__name__
+            persons.append(obj)
+    
+    # Query ontology for additional person data
+    ontology_persons = []
+    if ONTOLOGY_AVAILABLE:
+        try:
+            # Utiliser les noms exacts de l'ontologie (avec accents)
+            sparql = """
+            PREFIX : <http://www.transport-ontology.org/travel#>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            
+            SELECT ?person ?id ?name ?age ?email ?role ?type
+            WHERE {
+                ?person a/rdfs:subClassOf* :Person ;
+                        :hasID ?id ;
+                        :hasName ?name .
+                OPTIONAL { ?person :hasAge ?age }
+                OPTIONAL { ?person :hasEmail ?email }
+                OPTIONAL { ?person :hasRole ?role }
+                BIND(
+                    IF(EXISTS { ?person rdf:type :Conducteur }, "Conducteur",
+                    IF(EXISTS { ?person rdf:type :Contrôleur }, "Contrôleur",
+                    IF(EXISTS { ?person rdf:type :EmployéAgence }, "EmployéAgence",
+                    IF(EXISTS { ?person rdf:type :Passager }, "Passager", "Person"))))
+                    AS ?type)
+            }
+            LIMIT 50
+            """
+            result = sparql_query(sparql)
+            ontology_persons = result.get('results', {}).get('bindings', [])
+        except Exception as e:
+            messages.warning(request, f"Impossible de charger les données de l'ontologie: {e}")
+
+    return render(request, 'list_persons.html', {
+        'persons': persons,
+        'ontology_persons': ontology_persons,
+        'ontology_available': ONTOLOGY_AVAILABLE
+    })
+
+
+def create_person(request):
+    """Create a new person"""
+    if request.method == 'POST':
+        # Debug: afficher les données POST
+        print(f"[DEBUG] POST data: {request.POST}")
+        print(f"[DEBUG] has_id: {request.POST.get('has_id')}")
+        print(f"[DEBUG] has_name: {request.POST.get('has_name')}")
+        
+        form = PersonForm(request.POST)
+        
+        # Appeler is_valid() explicitement
+        is_valid = form.is_valid()
+        
+        print(f"[DEBUG] Form is valid: {is_valid}")
+        print(f"[DEBUG] Form errors: {form.errors}")
+        if hasattr(form, 'cleaned_data'):
+            print(f"[DEBUG] Cleaned data keys: {list(form.cleaned_data.keys())}")
+            print(f"[DEBUG] has_id in cleaned_data: {'has_id' in form.cleaned_data}, value: {repr(form.cleaned_data.get('has_id'))}")
+            print(f"[DEBUG] has_name in cleaned_data: {'has_name' in form.cleaned_data}, value: {repr(form.cleaned_data.get('has_name'))}")
+        
+        if is_valid:
+            try:
+                person = form.save()
+                
+                # Sync to ontology if available
+                if ONTOLOGY_AVAILABLE:
+                    try:
+                        sync_service = OntologySyncService()
+                        sync_service.sync_person_to_ontology(person)
+                        messages.success(request, "Personne créée et synchronisée avec l'ontologie !")
+                    except Exception as e:
+                        messages.warning(request, f"Personne créée mais erreur de synchronisation: {e}")
+                else:
+                    messages.success(request, "Personne créée avec succès !")
+                
+                return redirect('list_persons')
+            except Exception as e:
+                messages.error(request, f"Erreur lors de la sauvegarde: {e}")
+                # Afficher les erreurs du formulaire
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f"{field}: {error}")
+        else:
+            # Afficher les erreurs de validation
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+    else:
+        form = PersonForm()
+    return render(request, 'person_form.html', {'form': form, 'title': 'Créer une Personne'})
+
+
+def update_person(request, pk):
+    """Update an existing person"""
+    person = get_object_or_404(Person, pk=pk)
+    # Récupérer l'instance de la sous-classe
+    person = Person.get_subclass(pk)
+    
+    if request.method == 'POST':
+        form = PersonForm(request.POST, instance=person)
+        if form.is_valid():
+            try:
+                person = form.save()
+                
+                # Sync to ontology if available
+                if ONTOLOGY_AVAILABLE:
+                    try:
+                        sync_service = OntologySyncService()
+                        sync_service.sync_person_to_ontology(person)
+                        messages.success(request, "Personne modifiée et synchronisée !")
+                    except Exception as e:
+                        messages.warning(request, f"Personne modifiée mais erreur de synchronisation: {e}")
+                else:
+                    messages.success(request, "Personne modifiée !")
+                
+                return redirect('list_persons')
+            except Exception as e:
+                messages.error(request, f"Erreur: {e}")
+    else:
+        form = PersonForm(instance=person)
+    
+    return render(request, 'person_form.html', {
+        'form': form,
+        'title': 'Modifier la Personne'
+    })
+
+
+def delete_person(request, pk):
+    """Delete a person"""
+    person = get_object_or_404(Person, pk=pk)
+    # Récupérer l'instance de la sous-classe
+    person = Person.get_subclass(pk)
+    
+    if request.method == 'POST':
+        # Delete from ontology first if available
+        if ONTOLOGY_AVAILABLE:
+            try:
+                sync_service = OntologySyncService()
+                sync_service.delete_person_from_ontology(person)
+            except Exception as e:
+                messages.warning(request, f"Erreur lors de la suppression de l'ontologie: {e}")
+        
+        # Then delete from database
+        person.delete()
+        messages.success(request, "Personne supprimée.")
+        return redirect('list_persons')
+    
+    return render(request, 'confirm_delete.html', {
+        'object': person,
+        'type': 'personne'
+    })

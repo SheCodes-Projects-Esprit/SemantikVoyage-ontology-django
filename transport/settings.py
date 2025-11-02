@@ -135,7 +135,7 @@ FUSEKI_DATASET = os.getenv('FUSEKI_DATASET', 'transport_db')
 FUSEKI_GRAPH = os.getenv('FUSEKI_GRAPH', 'http://www.transport-ontology.org/travel')
 
 # Ajoutez ceci pour debug
-print(f"🔧 Configuration Fuseki:")
-print(f"🔧 FUSEKI_URL: {FUSEKI_URL}")
-print(f"🔧 FUSEKI_DATASET: {FUSEKI_DATASET}")
-print(f"🔧 FUSEKI_GRAPH: {FUSEKI_GRAPH}")
+# print(f"Configuration Fuseki:")
+# print(f"FUSEKI_URL: {FUSEKI_URL}")
+# print(f"FUSEKI_DATASET: {FUSEKI_DATASET}")
+# print(f"FUSEKI_GRAPH: {FUSEKI_GRAPH}")

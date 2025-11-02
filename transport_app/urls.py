@@ -14,6 +14,12 @@ urlpatterns = [
     path('transports/<int:pk>/<str:model_name>/update/', views.update_transport, name='update_transport'),
     path('transports/<int:pk>/<str:model_name>/delete/', views.delete_transport, name='delete_transport'),
     
+    # Persons
+    path('persons/', views.list_persons, name='list_persons'),
+    path('persons/create/', views.create_person, name='create_person'),
+    path('persons/<int:pk>/update/', views.update_person, name='update_person'),
+    path('persons/<int:pk>/delete/', views.delete_person, name='delete_person'),
+    
     # Ontology
     path('ontology/query/', views.ontology_query_view, name='ontology_query'),
     path('ontology/update/', views.ontology_update_view, name='ontology_update'),
