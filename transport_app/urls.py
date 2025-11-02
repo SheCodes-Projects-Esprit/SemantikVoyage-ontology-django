@@ -16,6 +16,8 @@ urlpatterns = [
     
     # Ontology
     path('ontology/query/', views.ontology_query_view, name='ontology_query'),
+    path('ontology/update/', views.ontology_update_view, name='ontology_update'),
+    path('ontology/operations/', views.ontology_operations_view, name='ontology_operations'),
     path('ontology/sync/', views.sync_all_data_view, name='sync_ontology'),
     path('ontology/status/', views.ontology_status_view, name='ontology_status'),
 ]

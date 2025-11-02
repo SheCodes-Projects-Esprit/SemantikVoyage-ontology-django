@@ -15,8 +15,8 @@ from .forms import StationForm, TransportForm
 # Import des services ontologie
 try:
     from .services.ontology_service import OntologySyncService
-    from core.utils.nl_to_sparql import nl_to_sparql
-    from core.utils.fuseki import sparql_query
+    from core.utils.nl_to_sparql import nl_to_sparql, nl_to_sparql_update
+    from core.utils.fuseki import sparql_query, sparql_update
     ONTOLOGY_AVAILABLE = True
 except ImportError as e:
     print(f"Ontology services not available: {e}")
@@ -70,6 +70,7 @@ def list_stations(request):
         'ontology_stations': ontology_stations,
         'ontology_available': ONTOLOGY_AVAILABLE
     })
+
 def create_station(request):
     if request.method == 'POST':
         form = StationForm(request.POST)
@@ -193,7 +194,7 @@ def create_transport(request):
                 else:
                     messages.success(request, "Transport créé avec succès !")
                 
-                return redirect('transports_list')
+                return redirect('list_transports')
             except ValidationError as e:
                 # Gérer les erreurs de validation
                 for field, errors in e.message_dict.items():
@@ -209,7 +210,7 @@ def update_transport(request, pk, model_name):
     model_map = {'bus': Bus, 'metro': Metro, 'train': Train, 'tram': Tram}
     if model_name.lower() not in model_map:
         messages.error(request, "Type de transport invalide.")
-        return redirect('transports_list')
+        return redirect('list_transports')
 
     model = model_map[model_name.lower()]
     transport = get_object_or_404(model, pk=pk)
@@ -235,7 +236,7 @@ def update_transport(request, pk, model_name):
                     else:
                         messages.success(request, "Transport modifié avec succès !")
                     
-                    return redirect('transports_list')
+                    return redirect('list_transports')
                 except ValidationError as e:
                     for field, errors in e.message_dict.items():
                         for error in errors:
@@ -249,7 +250,7 @@ def delete_transport(request, pk, model_name):
     model_map = {'bus': Bus, 'metro': Metro, 'train': Train, 'tram': Tram}
     if model_name.lower() not in model_map:
         messages.error(request, "Type de transport invalide.")
-        return redirect('transports_list')
+        return redirect('list_transports')
 
     model = model_map[model_name.lower()]
     transport = get_object_or_404(model, pk=pk)
@@ -266,7 +267,7 @@ def delete_transport(request, pk, model_name):
         # Then delete from database
         transport.delete()
         messages.success(request, "Transport supprimé.")
-        return redirect('transports_list')
+        return redirect('list_transports')
 
     return render(request, 'confirm_delete.html', {'object': transport, 'type': 'transport'})
 
@@ -317,6 +318,94 @@ def ontology_query_view(request):
         'table_rows': table_rows,
         'results_count': len(table_rows)
     })
+
+def ontology_update_view(request):
+    """View for natural language UPDATE operations"""
+    update_result = None
+    generated_sparql = ""
+    
+    if not ONTOLOGY_AVAILABLE:
+        messages.error(request, "Les services d'ontologie ne sont pas disponibles.")
+        return redirect('list_stations')
+    
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        question = request.POST.get('question', '').strip()
+        
+        if question:
+            try:
+                if action == 'update':
+                    # Use the new UPDATE function
+                    generated_sparql = nl_to_sparql_update(question)
+                else:
+                    # Use the existing SELECT function
+                    generated_sparql = nl_to_sparql(question)
+                
+                if generated_sparql:
+                    print(f"🔍 Requête générée: {generated_sparql}")
+                    
+                    if action == 'update':
+                        try:
+                            # Execute UPDATE query
+                            print("🔄 Exécution de la requête UPDATE...")
+                            result = sparql_update(generated_sparql)
+                            print(f"✅ UPDATE réussi - Status: {result.status_code}")
+                            
+                            update_result = {
+                                'status': 'success',
+                                'message': 'Opération réalisée avec succès !'
+                            }
+                            
+                        except Exception as e:
+                            print(f"❌ Erreur UPDATE: {e}")
+                            update_result = {
+                                'status': 'error',
+                                'message': f"Erreur lors de l'exécution: {e}"
+                            }
+                    else:
+                        # Execute SELECT query
+                        print("🔍 Exécution de la requête SELECT...")
+                        results_data = sparql_query(generated_sparql)
+                        print(f"✅ SELECT réussi - {len(results_data.get('results', {}).get('bindings', []))} résultats")
+                        
+                        # Preprocess results
+                        table_headers = []
+                        table_rows = []
+                        if results_data and 'results' in results_data and 'bindings' in results_data['results']:
+                            table_headers = results_data.get('head', {}).get('vars', [])
+                            for binding in results_data['results']['bindings']:
+                                row = []
+                                for var in table_headers:
+                                    if var in binding:
+                                        row.append(binding[var].get('value', 'N/A'))
+                                    else:
+                                        row.append('N/A')
+                                table_rows.append(row)
+                        
+                        update_result = {
+                            'status': 'query',
+                            'headers': table_headers,
+                            'rows': table_rows,
+                            'count': len(table_rows)
+                        }
+                    
+                else:
+                    messages.error(request, "Impossible de générer la requête SPARQL")
+            except Exception as e:
+                print(f"❌ Erreur générale: {e}")
+                update_result = {
+                    'status': 'error',
+                    'message': f"Erreur: {e}"
+                }
+    
+    return render(request, 'ontology_update.html', {
+        'update_result': update_result,
+        'sparql_query': generated_sparql
+    })
+
+def ontology_operations_view(request):
+    """Main view for all ontology operations"""
+    return render(request, 'ontology_operations.html')
 
 def sync_all_data_view(request):
     """View to manually sync all data to ontology"""

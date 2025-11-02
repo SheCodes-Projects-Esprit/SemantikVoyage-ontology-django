@@ -849,7 +849,6 @@ header::after {
 }
 
 form {
-  display: flex;
   gap: 1.2rem;
   max-width: 700px;
   margin: 0 auto 2rem;
