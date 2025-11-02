@@ -7,7 +7,7 @@ MODEL = "llama-3.3-70b-versatile"  # Plus puissant pour meilleure génération
 def nl_to_sparql(question: str) -> str:
     api_key = os.getenv('GROQ_API_KEY')
     if not api_key:
-        print("❌ GROQ_API_KEY missing in .env")
+        print("[ERROR] GROQ_API_KEY missing in .env")
         return ""
 
     client = Groq(api_key=api_key)
@@ -281,11 +281,11 @@ Generate the SPARQL query NOW (nothing else):"""
     )
     
     generated = response.choices[0].message.content.strip()
-    print(f"🔍 AI Generated:\n{generated}\n")
+    print(f"[DEBUG] AI Generated:\n{generated}\n")
     
     # Extraction minimale (juste nettoyage)
     sparql = clean_sparql(generated)
-    print(f"✅ Final SPARQL:\n{sparql}\n")
+    print(f"[OK] Final SPARQL:\n{sparql}\n")
     
     return sparql
 
@@ -314,7 +314,7 @@ def nl_to_sparql_update(question: str) -> str:
     """Convert natural language to SPARQL UPDATE queries"""
     api_key = os.getenv('GROQ_API_KEY')
     if not api_key:
-        print("❌ GROQ_API_KEY missing in .env")
+        print("[ERROR] GROQ_API_KEY missing in .env")
         return ""
 
     client = Groq(api_key=api_key)
@@ -530,10 +530,10 @@ Generate the SPARQL UPDATE query NOW (nothing else):"""
     )
     
     generated = response.choices[0].message.content.strip()
-    print(f"🔍 AI Generated UPDATE:\n{generated}\n")
+    print(f"[DEBUG] AI Generated UPDATE:\n{generated}\n")
     
     # Clean the output
     sparql = clean_sparql(generated)
-    print(f"✅ Final SPARQL UPDATE:\n{sparql}\n")
+    print(f"[OK] Final SPARQL UPDATE:\n{sparql}\n")
     
     return sparql

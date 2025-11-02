@@ -210,3 +210,78 @@ class Tram(Transport):
     class Meta:
         verbose_name = "Tram"
         verbose_name_plural = "Trams"
+
+
+# === PERSON ===
+class Person(models.Model):
+    """Classe de base pour Person"""
+    has_id = models.CharField(max_length=50, unique=True, help_text="Identifiant unique de la personne")
+    has_name = models.CharField(max_length=255, help_text="Nom de la personne")
+    has_age = models.IntegerField(null=True, blank=True, help_text="Âge de la personne")
+    has_email = models.EmailField(null=True, blank=True, help_text="Email de la personne")
+    has_phone_number = models.CharField(max_length=20, null=True, blank=True, help_text="Numéro de téléphone")
+    has_role = models.CharField(max_length=50, null=True, blank=True, help_text="Rôle de la personne")
+
+    @classmethod
+    def get_subclass(cls, pk):
+        """Récupère l'instance de la sous-classe appropriée"""
+        for subclass in cls.__subclasses__():
+            try:
+                return subclass.objects.get(pk=pk)
+            except subclass.DoesNotExist:
+                continue
+        raise cls.DoesNotExist(f"No {cls.__name__} with pk={pk}")
+
+    def __str__(self):
+        return f"{self.has_name} ({self.has_id})"
+
+    class Meta:
+        verbose_name = "Person"
+        verbose_name_plural = "Persons"
+
+
+class Conducteur(Person):
+    """Conducteur - Sous-classe de Person"""
+    has_license_number = models.CharField(max_length=50, null=True, blank=True, help_text="Numéro de permis")
+    has_experience_years = models.IntegerField(null=True, blank=True, help_text="Années d'expérience")
+    drives_line = models.CharField(max_length=100, null=True, blank=True, help_text="Ligne conduite")
+    has_work_shift = models.CharField(max_length=50, null=True, blank=True, help_text="Tranche horaire de travail")
+    works_for = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name='conducteurs', help_text="Compagnie pour laquelle il travaille")
+
+    class Meta:
+        verbose_name = "Conducteur"
+        verbose_name_plural = "Conducteurs"
+
+
+class Contrôleur(Person):
+    """Contrôleur - Sous-classe de Person"""
+    has_badge_id = models.CharField(max_length=50, null=True, blank=True, help_text="Numéro de badge")
+    has_assigned_zone = models.CharField(max_length=100, null=True, blank=True, help_text="Zone assignée")
+    has_inspection_count = models.IntegerField(null=True, blank=True, default=0, help_text="Nombre d'inspections")
+    works_for_company = models.CharField(max_length=255, null=True, blank=True, help_text="Nom de la compagnie")
+
+    class Meta:
+        verbose_name = "Contrôleur"
+        verbose_name_plural = "Contrôleurs"
+
+
+class EmployéAgence(Person):
+    """Employé Agence - Sous-classe de Person"""
+    has_employee_id = models.CharField(max_length=50, null=True, blank=True, help_text="Numéro d'employé")
+    has_position = models.CharField(max_length=100, null=True, blank=True, help_text="Poste occupé")
+    works_at = models.CharField(max_length=255, null=True, blank=True, help_text="Lieu de travail")
+    has_schedule = models.ForeignKey(Schedule, on_delete=models.SET_NULL, null=True, blank=True, related_name='employes', help_text="Horaires de travail")
+
+    class Meta:
+        verbose_name = "Employé Agence"
+        verbose_name_plural = "Employés Agence"
+
+
+class Passager(Person):
+    """Passager - Sous-classe de Person"""
+    has_subscription_type = models.CharField(max_length=50, null=True, blank=True, help_text="Type d'abonnement (mensuel, hebdomadaire, etc.)")
+    has_preferred_transport = models.CharField(max_length=50, null=True, blank=True, help_text="Transport préféré (bus, métro, etc.)")
+
+    class Meta:
+        verbose_name = "Passager"
+        verbose_name_plural = "Passagers"
