@@ -1,0 +1,58 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}AI Itinerary Suggestions{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 600px; margin: 60px auto;">
+    <h2>AI-Powered Suggestions</h2>
+    <form id="prefs-form" method="post">
+      {% csrf_token %}
+      <div class="input-wrapper">
+        <label>Trip Type:</label>
+        <select name="type">
+          <option value="Business">Business</option>
+          <option value="Leisure">Leisure</option>
+          <option value="Educational">Educational</option>
+        </select>
+      </div>
+      <div class="input-wrapper">
+        <label>Duration (days):</label>
+        <input type="number" name="duration" value="3" min="1">
+      </div>
+      <div class="input-wrapper">
+        <label>Budget (TND):</label>
+        <input type="number" name="budget" value="1000" min="0">
+      </div>
+      <button type="button" onclick="getSuggestions()" class="cta-btn">Get Suggestions</button>
+    </form>
+    <div id="suggestions" style="margin-top: 2rem;"></div>
+  </div>
+
+  <script>
+    function getSuggestions() {
+      const formData = new FormData(document.getElementById('prefs-form'));
+      fetch("{% url 'itinerary:ai_suggest' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          document.getElementById('suggestions').innerHTML = `<p class="error">${data.error}</p>`;
+        } else {
+          let html = '<h3>Suggestions:</h3><ul>';
+          for (let key in data.suggestions) {
+            html += `<li><strong>${key}:</strong> ${data.suggestions[key]}</li>`;
+          }
+          html += '</ul>';
+          document.getElementById('suggestions').innerHTML = html;
+        }
+      })
+      .catch(err => console.error(err));
+    }
+  </script>
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}

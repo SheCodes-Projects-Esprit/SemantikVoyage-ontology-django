@@ -1,0 +1,113 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}Delete {{ itinerary.itineraryID }}{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  
+  <div class="container" style="max-width: 600px; margin: 60px auto; text-align: center; padding: 0 20px;">
+    <!-- Warning Icon -->
+    <div style="font-size: 64px; margin-bottom: 1.5rem; animation: pulse 2s ease-in-out infinite;">
+      ⚠️
+    </div>
+
+    <h2 style="font-size: 32px; font-weight: 900; margin-bottom: 1rem; color: var(--text-primary);">
+      Delete Itinerary?
+    </h2>
+    
+    <div style="background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-md);">
+      <p style="font-size: 16px; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.6;">
+        Are you sure you want to permanently delete this itinerary from the RDF store?
+      </p>
+      
+      <div style="background: var(--bg-muted); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; text-align: left;">
+        <div style="display: grid; gap: 1rem;">
+          <div>
+            <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">ID:</span>
+            <p style="font-weight: 700; color: var(--text-primary); font-size: 18px; margin: 0.3rem 0 0 0;">
+              {{ itinerary.itineraryID|default:id }}
+            </p>
+          </div>
+          
+          <div>
+            <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Status:</span>
+            <p style="font-weight: 600; color: var(--text-secondary); font-size: 16px; margin: 0.3rem 0 0 0;">
+              {{ itinerary.overallStatus|default:"Unknown" }}
+            </p>
+          </div>
+
+          {% if itinerary.type %}
+          <div>
+            <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Type:</span>
+            <p style="font-weight: 600; color: var(--text-secondary); font-size: 16px; margin: 0.3rem 0 0 0;">
+              {{ itinerary.type }} Trip
+            </p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="padding: 1rem; background: #fee; border-radius: var(--radius); border: 1px solid #fcc; margin-bottom: 1.5rem;">
+        <p style="color: #991b1b; font-weight: 600; font-size: 14px; margin: 0;">
+          ⚠️ This action cannot be undone. All RDF triples associated with this itinerary will be permanently removed.
+        </p>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <form method="post" style="display: inline; margin: 0;">
+          {% csrf_token %}
+          <button type="submit" style="padding: 1.2rem 2.5rem; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: var(--radius-full); font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 8px 24px rgba(239, 68, 68, 0.3); transition: var(--transition); text-transform: uppercase; letter-spacing: 0.5px;"
+                  onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 12px 32px rgba(239, 68, 68, 0.4)';"
+                  onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 8px 24px rgba(239, 68, 68, 0.3)';">
+            🗑️ Yes, Delete It
+          </button>
+        </form>
+        
+        <a href="{% url 'itinerary:detail' id %}" 
+           style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; padding: 1.2rem 2.5rem; background: transparent; border: 2px solid var(--border); color: var(--text-secondary); border-radius: var(--radius-full); font-weight: 600; font-size: 15px; transition: var(--transition); text-transform: uppercase; letter-spacing: 0.5px;"
+           onmouseover="this.style.background='rgba(16, 185, 129, 0.1)'; this.style.borderColor='var(--primary)'; this.style.color='var(--primary)'; this.style.transform='translateY(-2px)';"
+           onmouseout="this.style.background='transparent'; this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'; this.style.transform='translateY(0)';">
+          ← Cancel
+        </a>
+      </div>
+    </div>
+
+    <!-- Additional Info -->
+    <p style="color: var(--text-muted); font-size: 13px;">
+      Need help? <a href="{% url 'itinerary:list' %}" style="color: var(--primary); text-decoration: none; font-weight: 600;">Return to itinerary list</a>
+    </p>
+  </div>
+  
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}
+
+{% block styles %}
+<style>
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 0.8;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 0 1.5rem;
+    }
+
+    h2 {
+      font-size: 24px;
+    }
+
+    button, a {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}

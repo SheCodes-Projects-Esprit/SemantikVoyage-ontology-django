@@ -1,0 +1,204 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}{% if is_update %}Update{% else %}Create{% endif %} {{ type }} Trip{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 700px; margin: 60px auto; padding: 0 20px;">
+    <div style="margin-bottom: 2rem;">
+      <h2 style="font-size: 32px; font-weight: 900; margin-bottom: 0.5rem; color: var(--text-primary);">
+        {% if is_update %}✏️ Update{% else %}✨ Create{% endif %} {{ type }} Trip
+      </h2>
+      <p style="font-size: 14px; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
+        📊 {% if is_update %}Updating existing data{% else %}Storing new data{% endif %} in RDF Triplestore (Apache Jena Fuseki)
+      </p>
+    </div>
+    
+    {% if messages %}
+      <div style="margin-bottom: 2rem;">
+        {% for message in messages %}
+          <p class="{% if message.tags == 'error' %}error{% else %}info{% endif %}" 
+             style="padding: 1rem 1.5rem; border-radius: 8px; margin-bottom: 1rem; display: flex; align-items: start; gap: 0.5rem;
+                    background: {% if message.tags == 'error' %}#fee2e2; border: 1px solid #fecaca{% else %}#eff6ff; border: 1px solid #bfdbfe{% endif %}; 
+                    color: {% if message.tags == 'error' %}#991b1b{% else %}#1e40af{% endif %}; font-weight: 500; font-size: 14px; line-height: 1.5;">
+            <span style="font-size: 18px;">{% if message.tags == 'error' %}❌{% else %}ℹ️{% endif %}</span>
+            <span>{{ message }}</span>
+          </p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" style="background: var(--bg-secondary); padding: 2.5rem; border-radius: var(--radius-lg); border: 2px solid var(--border); box-shadow: var(--shadow-md);">
+      {% csrf_token %}
+      
+      <!-- Render form fields with better styling -->
+      {% for field in form %}
+        <div style="margin-bottom: 1.5rem;">
+          <label for="{{ field.id_for_label }}" style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary); font-size: 14px;">
+            {{ field.label }}
+            {% if field.field.required %}
+              <span style="color: #ef4444;">*</span>
+            {% endif %}
+          </label>
+          
+          {% if field.help_text %}
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 0.5rem;">
+              {{ field.help_text }}
+            </p>
+          {% endif %}
+          
+          {{ field }}
+          
+          {% if field.errors %}
+            <div style="margin-top: 0.5rem;">
+              {% for error in field.errors %}
+                <p style="color: #ef4444; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 0.3rem;">
+                  <span>⚠️</span> {{ error }}
+                </p>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+
+      <!-- Form errors (non-field errors) -->
+      {% if form.non_field_errors %}
+        <div style="margin-bottom: 1.5rem; padding: 1rem; background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px;">
+          {% for error in form.non_field_errors %}
+            <p style="color: #991b1b; font-weight: 500; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+              <span>❌</span>{{ error }}
+            </p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <!-- Action Buttons -->
+      <div style="margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+        <button type="submit" class="cta-btn" style="flex: 1; min-width: 150px;">
+          {% if is_update %}💾 Update Itinerary{% else %}✨ Create Itinerary{% endif %}
+        </button>
+        <a href="{% if is_update %}{% url 'itinerary:detail' id %}{% else %}{% url 'itinerary:list' %}{% endif %}" 
+           class="cta-ghost" 
+           style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; flex: 1; min-width: 150px;">
+          ← Cancel
+        </a>
+      </div>
+    </form>
+
+    <!-- Info Box -->
+    <div style="margin-top: 2rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.05)); border-radius: var(--radius); border: 1px solid rgba(16, 185, 129, 0.2);">
+      <p style="margin: 0; color: var(--text-secondary); font-size: 14px; line-height: 1.6; display: flex; align-items: start; gap: 0.5rem;">
+        <span style="font-size: 18px;">💡</span>
+        <span>
+          <strong style="color: var(--primary);">RDF Semantic Storage:</strong> 
+          {% if is_update %}
+            This form updates the itinerary directly in the RDF triplestore (Apache Jena Fuseki). Changes are immediate and semantic - perfect for complex queries and reasoning.
+          {% else %}
+            This form creates a new itinerary in the RDF triplestore (Apache Jena Fuseki). Your data will be stored as semantic triples, enabling advanced SPARQL queries and ontology-based reasoning.
+          {% endif %}
+        </span>
+      </p>
+    </div>
+  </div>
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}
+
+{% block styles %}
+<style>
+  /* Form field styling */
+  form input[type="text"],
+  form input[type="number"],
+  form select,
+  form textarea {
+    width: 100%;
+    padding: 0.9rem 1.2rem;
+    font-size: 15px;
+    background: var(--bg-primary);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    outline: none;
+    transition: var(--transition);
+    color: var(--text-primary);
+    font-family: inherit;
+  }
+
+  form input[type="text"]:focus,
+  form input[type="number"]:focus,
+  form select:focus,
+  form textarea:focus {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+    transform: translateY(-1px);
+  }
+
+  form input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--primary);
+  }
+
+  /* Button styling */
+  .cta-btn {
+    padding: 1.2rem 2.5rem;
+    font-weight: 700;
+    font-size: 15px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+    border: 2px solid transparent;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .cta-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
+  }
+
+  .cta-btn:active {
+    transform: translateY(-1px);
+  }
+
+  .cta-ghost {
+    padding: 1.2rem 2.5rem;
+    background: transparent;
+    border: 2px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 15px;
+    transition: var(--transition);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .cta-ghost:hover {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-2px);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .container {
+      padding: 0 1.5rem;
+    }
+
+    form {
+      padding: 2rem 1.5rem;
+    }
+
+    .cta-btn, .cta-ghost {
+      width: 100%;
+      flex: none !important;
+    }
+  }
+</style>
+{% endblock %}

@@ -19,6 +19,10 @@ def sparql_query(sparql):
 
 def sparql_update(sparql):
     payload = {'update': sparql}
+    
+    if settings.FUSEKI_GRAPH:
+        payload['default-graph-uri'] = settings.FUSEKI_GRAPH
+    
     response = requests.post(FUSEKI_UPDATE_URL, data=payload)
     response.raise_for_status()
     return response

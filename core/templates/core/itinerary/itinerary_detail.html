@@ -1,0 +1,171 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}{{ itinerary.itineraryID|default:id }} - Itinerary Details{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  
+  <div class="container" style="max-width: 900px; margin: 60px auto; padding: 0 20px;">
+    {% if messages %}
+      <div style="margin-bottom: 2rem;">
+        {% for message in messages %}
+          <p class="{% if message.tags == 'error' %}error{% else %}info{% endif %}" 
+             style="padding: 1rem; border-radius: 8px; background: {% if message.tags == 'error' %}#fee; border: 1px solid #fcc{% else %}#eff6ff; border: 1px solid #bfdbfe{% endif %}">
+            {{ message }}
+          </p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div style="margin-bottom: 2rem;">
+      <h2 style="font-size: 36px; font-weight: 900; margin-bottom: 0.5rem; color: var(--text-primary);">
+        Itinerary: {{ itinerary.itineraryID|default:id }}
+      </h2>
+      <p style="color: var(--text-muted); font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
+        {{ itinerary.type|default:"Unknown" }} Trip
+      </p>
+    </div>
+
+    <!-- Main Information Card -->
+    <div class="itinerary-card" style="background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-md);">
+      <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 1.5rem; color: var(--primary);">
+        Basic Information
+      </h3>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+        <div>
+          <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Status</p>
+          <p style="font-weight: 600; color: var(--text-primary); font-size: 16px;">
+            {{ itinerary.overallStatus|default:"N/A" }}
+          </p>
+        </div>
+        
+        <div>
+          <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Cost Estimate</p>
+          <p style="font-weight: 600; color: var(--primary); font-size: 16px;">
+            {{ itinerary.totalCostEstimate|default:"0" }} TND
+          </p>
+        </div>
+        
+        <div>
+          <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Duration</p>
+          <p style="font-weight: 600; color: var(--text-primary); font-size: 16px;">
+            {{ itinerary.totalDurationDays|default:"0" }} days
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Type-Specific Information -->
+    <div class="itinerary-card" style="background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-md);">
+      <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 1.5rem; color: var(--primary);">
+        {{ itinerary.type|default:"Type" }}-Specific Details
+      </h3>
+      
+      {% if itinerary.type == "Business" %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Project</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.clientProjectName|default:"N/A" }}</p>
+          </div>
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Expense Limit</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.expenseLimit|default:"0" }} TND</p>
+          </div>
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Purpose Code</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.purposeCode|default:"N/A" }}</p>
+          </div>
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Approval Required</p>
+            <p style="font-weight: 600; color: var(--text-primary);">
+              {% if itinerary.approvalRequired == "true" or itinerary.approvalRequired == True %}
+                Yes
+              {% else %}
+                No
+              {% endif %}
+            </p>
+          </div>
+        </div>
+      {% elif itinerary.type == "Leisure" %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Activity</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.activityType|default:"N/A" }}</p>
+          </div>
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Accommodation</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.accommodation|default:"N/A" }}</p>
+          </div>
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Budget Per Day</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.budgetPerDay|default:"0" }} TND</p>
+          </div>
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Group Size</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.groupSize|default:"1" }} people</p>
+          </div>
+        </div>
+      {% elif itinerary.type == "Educational" %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Institution</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.institution|default:"N/A" }}</p>
+          </div>
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Course Reference</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.courseReference|default:"N/A" }}</p>
+          </div>
+          <div>
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Credit Hours</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.creditHours|default:"0" }}</p>
+          </div>
+          {% if itinerary.requiredDocumentation %}
+          <div style="grid-column: 1 / -1;">
+            <p style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem;">Required Documentation</p>
+            <p style="font-weight: 600; color: var(--text-primary);">{{ itinerary.requiredDocumentation }}</p>
+          </div>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Related Resources -->
+    {% if related %}
+      <div class="itinerary-card" style="background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-md);">
+        <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 1.5rem; color: var(--primary);">
+          Related Transports & Schedules
+        </h3>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          {% for item in related %}
+            <li style="padding: 1rem; margin-bottom: 0.8rem; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid var(--primary);">
+              <strong style="color: var(--text-primary);">Transport:</strong> 
+              <span style="color: var(--text-secondary);">{{ item.trans|default:"N/A" }}</span>
+              {% if item.sched and item.sched != "N/A" %}
+                <br>
+                <strong style="color: var(--text-primary);">Schedule:</strong> 
+                <span style="color: var(--text-secondary);">{{ item.sched }}</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div style="margin-top: 3rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+      <a href="{% url 'itinerary:update' id %}" class="cta-hero" style="text-decoration: none; display: inline-block;">
+        Edit Itinerary
+      </a>
+      <a href="{% url 'itinerary:delete' id %}" class="cta-ghost" style="text-decoration: none; display: inline-block; background: transparent; border: 2px solid var(--border); color: var(--text-secondary);">
+        Delete
+      </a>
+      <a href="{% url 'itinerary:list' %}" class="cta-ghost" style="text-decoration: none; display: inline-block; background: transparent; border: 2px solid var(--border); color: var(--text-secondary);">
+        ← Back to List
+      </a>
+    </div>
+  </div>
+  
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}
