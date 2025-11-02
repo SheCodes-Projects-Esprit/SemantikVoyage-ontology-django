@@ -24,11 +24,27 @@ NS = "http://www.transport-ontology.org/travel#"
 
 
 
-def _run_sparql(query, expect_json=True, timeout=10):
+def _run_sparql(query, expect_json=True, timeout=10, all_graphs=False):
     """
     Run SPARQL using sparql_query first, then HTTP fallback to FUSEKI_QUERY_URL if result empty/None.
+    If all_graphs=True, bypasses sparql_query and uses HTTP GET directly to search ALL graphs.
     Returns Python dict (parsed JSON) if expect_json True, otherwise raw response text.
     """
+    # If all_graphs=True, skip sparql_query (which adds default-graph-uri) and go straight to HTTP
+    if all_graphs:
+        try:
+            headers = {'Accept': 'application/sparql-results+json'}
+            # Use HTTP GET directly without default-graph-uri to search ALL graphs
+            resp = requests.get(FUSEKI_QUERY_URL, params={'query': query}, headers=headers, timeout=timeout)
+            resp.raise_for_status()
+            try:
+                return resp.json()
+            except ValueError:
+                return {'raw': resp.text}
+        except Exception as e:
+            print(f"_run_sparql (all_graphs): HTTP direct failed: {e}")
+            return {}
+    
     # Try existing wrapper
     try:
         res = sparql_query(query)
@@ -43,7 +59,7 @@ def _run_sparql(query, expect_json=True, timeout=10):
     except Exception as e:
         print(f"_run_sparql: sparql_query wrapper raised: {e}")
 
-    # HTTP fallback (mimic Fuseki UI)
+    # HTTP fallback (mimic Fuseki UI) - also without default-graph-uri
     try:
         headers = {'Accept': 'application/sparql-results+json'}
         resp = requests.get(FUSEKI_QUERY_URL, params={'query': query}, headers=headers, timeout=timeout)
@@ -448,74 +464,175 @@ def list_itineraries(filters=None):
     - If that returns empty bindings, falls back to a direct HTTP GET to FUSEKI_QUERY_URL
       with Accept: application/sparql-results+json so we mimic Fuseki UI behavior.
     """
-    sparql = f"""
+    # Strategy: Search in ALL graphs (default + configured graph) to find ALL itineraries
+    # This combines results from both the ontology file (default graph) and newly created ones (named graph)
+    
+    all_bindings = []
+    seen_subjects = set()  # Track by subject URI to avoid duplicates across queries
+    
+    # Query 1: Search WITHOUT GRAPH restriction (finds everything including default graph)
+    query1 = f"""
     PREFIX : <{NS}>
-    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX rdf: <http://www.w3.org/1999/02/22/rdf-syntax-ns#>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
     SELECT DISTINCT ?s ?id ?status ?cost ?duration ?type WHERE {{
-      ?s :itineraryID ?id .
+      {{
+        # Match by type first - catches all itineraries including new ones
+        ?s rdf:type/rdfs:subClassOf* :Itinerary .
+        OPTIONAL {{ ?s :itineraryID ?id }}
+      }}
+      UNION
+      {{
+        # Also match by itineraryID if type matching didn't work
+        ?s :itineraryID ?id .
+        OPTIONAL {{ ?s rdf:type/rdfs:subClassOf* :Itinerary }}
+      }}
       OPTIONAL {{ ?s rdf:type ?type }}
       OPTIONAL {{ ?s :overallStatus ?status }}
       OPTIONAL {{ ?s :totalCostEstimate ?cost }}
       OPTIONAL {{ ?s :totalDurationDays ?duration }}
-      FILTER( !BOUND(?type) || ?type = :BusinessTrip || ?type = :LeisureTrip || ?type = :EducationalTrip )
     }}
     ORDER BY ?id
-    LIMIT 200
+    LIMIT 500
     """
-
-    print("Running LIST SPARQL via sparql_query:\n", sparql)
-    result = None
+    
+    print("🔍 Query 1: Searching ALL graphs (no GRAPH restriction, no default-graph-uri)...")
     try:
-        result = sparql_query(sparql)
-        print("Raw SPARQL result from sparql_query:", result)
+        # Use all_graphs=True to bypass sparql_query and search ALL graphs
+        result1 = _run_sparql(query1, all_graphs=True)
+        if isinstance(result1, dict):
+            bindings1 = result1.get('results', {}).get('bindings', []) or []
+            print(f"✅ Query 1 returned {len(bindings1)} bindings")
+            for b in bindings1:
+                s_uri = b.get('s', {}).get('value', '') if isinstance(b.get('s'), dict) else str(b.get('s', ''))
+                if s_uri and s_uri not in seen_subjects:
+                    all_bindings.append(b)
+                    seen_subjects.add(s_uri)
+        else:
+            print("⚠️ Query 1 returned non-dict result")
     except Exception as e:
-        print("sparql_query raised exception:", e)
-
-    bindings = []
-    if isinstance(result, dict):
-        bindings = result.get('results', {}).get('bindings', []) or []
-
-    # If sparql_query returned no bindings, try direct HTTP to Fuseki (fallback)
-    if not bindings:
-        print("No bindings from sparql_query — attempting HTTP fallback to FUSEKI_QUERY_URL")
-        try:
-            headers = {'Accept': 'application/sparql-results+json'}
-            # Use GET with 'query' param (Fuseki supports GET)
-            resp = requests.get(FUSEKI_QUERY_URL, params={'query': sparql}, headers=headers, timeout=10)
-            print("HTTP GET ->", resp.status_code, resp.url)
-            resp.raise_for_status()
-            http_result = resp.json()
-            print("Raw SPARQL result from HTTP fallback:", http_result)
-            bindings = http_result.get('results', {}).get('bindings', []) or []
-        except Exception as e:
-            print("HTTP fallback failed:", e)
-            # As last resort, try the URL-encoded GET (some Fuseki setups require URL encoded query)
+        print(f"❌ Query 1 failed: {e}")
+        traceback.print_exc()
+    
+    # Query 2: If graph URI configured, also search explicitly in that graph (to catch any missed)
+    try:
+        graph_uri = getattr(settings, 'FUSEKI_GRAPH', None)
+        if graph_uri:
+            query2 = f"""
+            PREFIX : <{NS}>
+            PREFIX rdf: <http://www.w3.org/1999/02/22/rdf-syntax-ns#>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            
+            SELECT DISTINCT ?s ?id ?status ?cost ?duration ?type WHERE {{
+              GRAPH <{graph_uri}> {{
+                {{
+                  ?s rdf:type/rdfs:subClassOf* :Itinerary .
+                  OPTIONAL {{ ?s :itineraryID ?id }}
+                }}
+                UNION
+                {{
+                  ?s :itineraryID ?id .
+                  OPTIONAL {{ ?s rdf:type/rdfs:subClassOf* :Itinerary }}
+                }}
+                OPTIONAL {{ ?s rdf:type ?type }}
+                OPTIONAL {{ ?s :overallStatus ?status }}
+                OPTIONAL {{ ?s :totalCostEstimate ?cost }}
+                OPTIONAL {{ ?s :totalDurationDays ?duration }}
+              }}
+            }}
+            ORDER BY ?id
+            LIMIT 500
+            """
+            
+            print(f"🔍 Query 2: Searching explicitly in GRAPH <{graph_uri}>...")
             try:
-                qs = urlencode({'query': sparql})
-                resp2 = requests.get(f"{FUSEKI_QUERY_URL}?{qs}", headers=headers, timeout=10)
-                print("HTTP GET (encoded) ->", resp2.status_code, resp2.url)
-                resp2.raise_for_status()
-                http_result2 = resp2.json()
-                print("Raw SPARQL result from HTTP fallback (encoded):", http_result2)
-                bindings = http_result2.get('results', {}).get('bindings', []) or []
-            except Exception as e2:
-                print("HTTP fallback (encoded) also failed:", e2)
-                bindings = []
+                # Also use all_graphs=True to ensure we search in the named graph
+                result2 = _run_sparql(query2, all_graphs=True)
+                if isinstance(result2, dict):
+                    bindings2 = result2.get('results', {}).get('bindings', []) or []
+                    print(f"✅ Query 2 returned {len(bindings2)} bindings")
+                    for b in bindings2:
+                        s_uri = b.get('s', {}).get('value', '') if isinstance(b.get('s'), dict) else str(b.get('s', ''))
+                        if s_uri and s_uri not in seen_subjects:
+                            all_bindings.append(b)
+                            seen_subjects.add(s_uri)
+            except Exception as e:
+                print(f"❌ Query 2 failed: {e}")
+    except Exception as e:
+        print(f"⚠️ Error setting up graph query: {e}")
+    
+    bindings = all_bindings
+    print(f"📊 Total unique bindings after combining queries: {len(bindings)}")
 
-    print(f"Found {len(bindings)} raw bindings (after fallback attempts)")
+    print(f"📊 Found {len(bindings)} raw bindings")
+    
+    if not bindings:
+        print("⚠️ WARNING: No bindings returned from SPARQL query!")
+        return []
 
     rows = []
-    for b in bindings:
-        iid = b.get('id', {}).get('value', '')
-        if not iid:
-            print("Skipping entry with empty id binding:", b)
-            continue
+    seen_ids = set()  # Track seen IDs to avoid duplicates
 
-        type_uri = b.get('type', {}).get('value', '')
-        if type_uri:
-            type_name = type_uri.split('#')[-1].replace('Trip', '')
+    for idx, b in enumerate(bindings):
+        print(f"🔍 Processing binding {idx + 1}/{len(bindings)}: {b}")
+        
+        # Extract itinerary ID - handle both dict and direct values
+        iid_obj = b.get('id', {})
+        iid = iid_obj.get('value', '') if isinstance(iid_obj, dict) else str(iid_obj) if iid_obj else ''
+        
+        # If no ID from property, try to extract from subject URI
+        if not iid:
+            s_obj = b.get('s', {})
+            s_uri = s_obj.get('value', '') if isinstance(s_obj, dict) else str(s_obj) if s_obj else ''
+            print(f"  🔍 No ID from property, trying to extract from URI: {s_uri}")
+            # Try to extract ID from URI (e.g., .../travel#I-B-001 or .../travel#itinerary/I-E-005)
+            if s_uri:
+                if '#' in s_uri:
+                    local_part = s_uri.split('#')[-1]
+                    # Handle cases like "itinerary/I-E-005" - extract just the ID part
+                    if '/' in local_part:
+                        # Extract last part after slash (e.g., "I-E-005" from "itinerary/I-E-005")
+                        potential_id = local_part.split('/')[-1]
+                        print(f"  🔍 Extracted potential ID from path: {potential_id}")
+                        if potential_id.startswith(('I-B-', 'I-L-', 'I-E-')):
+                            iid = potential_id
+                    elif local_part.startswith(('I-B-', 'I-L-', 'I-E-')):
+                        iid = local_part
+                    elif local_part.startswith('I-'):
+                        iid = local_part
+                elif '/' in s_uri:
+                    local_part = s_uri.split('/')[-1]
+                    if local_part.startswith(('I-B-', 'I-L-', 'I-E-')):
+                        iid = local_part
+        
+        if not iid:
+            print(f"⚠️ Skipping entry {idx + 1} with empty id. Binding: {b}")
+            continue
+        
+        print(f"  ✅ Extracted ID: {iid}")
+
+        # Skip duplicates
+        if iid in seen_ids:
+            continue
+        seen_ids.add(iid)
+
+        # Determine type
+        type_obj = b.get('type', {})
+        type_value = type_obj.get('value', '') if isinstance(type_obj, dict) else str(type_obj) if type_obj else ''
+        
+        if type_value:
+            # Extract type name from URI
+            if 'BusinessTrip' in type_value or 'Business' in type_value:
+                type_name = "Business"
+            elif 'LeisureTrip' in type_value or 'Leisure' in type_value:
+                type_name = "Leisure"
+            elif 'EducationalTrip' in type_value or 'Educational' in type_value:
+                type_name = "Educational"
+            else:
+                type_name = "Unknown"
         else:
+            # Infer type from ID
             uid = iid.upper()
             if uid.startswith("I-B-"):
                 type_name = "Business"
@@ -526,24 +643,31 @@ def list_itineraries(filters=None):
             else:
                 type_name = "Unknown"
 
-        status = b.get('status', {}).get('value', 'Unknown')
-        cost_val = b.get('cost', {}).get('value', None)
+        # Extract status
+        status_obj = b.get('status', {})
+        status = status_obj.get('value', 'Unknown') if isinstance(status_obj, dict) else str(status_obj) if status_obj else 'Unknown'
+
+        # Extract cost - handle typed values
+        cost_obj = b.get('cost', {})
+        cost_val = cost_obj.get('value', None) if isinstance(cost_obj, dict) else cost_obj
         if cost_val is None or cost_val == '':
             cost_str = "0.00"
         else:
             try:
                 cost_str = f"{float(cost_val):.2f}"
             except (ValueError, TypeError):
-                cost_str = str(cost_val)
+                cost_str = str(cost_val) if cost_val else "0.00"
 
-        dur_val = b.get('duration', {}).get('value', None)
+        # Extract duration - handle typed values
+        dur_obj = b.get('duration', {})
+        dur_val = dur_obj.get('value', None) if isinstance(dur_obj, dict) else dur_obj
         if dur_val is None or dur_val == '':
             duration_str = "1"
         else:
             try:
                 duration_str = str(int(float(dur_val)))
             except (ValueError, TypeError):
-                duration_str = str(dur_val)
+                duration_str = str(dur_val) if dur_val else "1"
 
         row = {
             "id": iid,
@@ -573,6 +697,13 @@ def list_itineraries(filters=None):
                     pass
 
         rows.append(row)
+        print(f"  ✅ Added row: {row}")
 
-    print(f"Final: Listed {len(rows)} itineraries: {[r['id'] for r in rows]}")
+    # Sort by ID to ensure consistent ordering
+    rows.sort(key=lambda x: x["id"])
+
+    print(f"✅ Final: Listed {len(rows)} itineraries (from {len(bindings)} bindings)")
+    print(f"   IDs: {[r['id'] for r in rows[:10]]}{'...' if len(rows) > 10 else ''}")
+    if len(rows) == 0:
+        print("⚠️ WARNING: No rows created! Check the bindings processing above.")
     return rows
