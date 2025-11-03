@@ -1,0 +1,26 @@
+{% extends 'core/layout/_base.html' %}
+{% block title %}Schedule Detail{% endblock %}
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 1000px; margin: 40px auto; padding: 0 20px;">
+    <div style="display:flex; align-items:center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+      <h2 style="font-weight: 900; color: var(--text-primary); margin: 0;">Schedule {{ id }}</h2>
+      <span style="display:inline-flex; align-items:center; gap:.5rem; padding:.4rem 1rem; border-radius:20px; font-weight:700; background:#dbeafe; color:#1e40af;">{{ icon }} {{ type_name }}</span>
+    </div>
+    <div style="background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md);">
+      <table style="width:100%; border-collapse: collapse;">
+        <tbody>
+          {% for label, value in rows %}
+          <tr style="border-bottom:1px solid var(--border-light);">
+            <th style="text-align:left; padding: 0.9rem 1.2rem; width: 260px; color: var(--text-primary); background: var(--bg-muted);">{{ label }}</th>
+            <td style="padding: 0.9rem 1.2rem; color: var(--text-secondary);">{{ value }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}
+
+

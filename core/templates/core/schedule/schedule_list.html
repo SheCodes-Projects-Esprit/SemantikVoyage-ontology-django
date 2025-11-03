@@ -1,0 +1,183 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}Schedules - TRANSPERSO{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 1200px; margin: 60px auto; padding: 0 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 style="font-size: 36px; font-weight: 900; margin: 0 0 0.5rem 0; color: var(--text-primary);">All Schedules</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 0;">⏱️ Stored in RDF Triplestore (Apache Jena Fuseki)</p>
+      </div>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="{% url 'schedule:create' %}?type=Daily" class="cta-hero" style="text-decoration: none; padding: 1rem 2rem; font-size: 14px; white-space: nowrap;">🗓️ Daily Schedule</a>
+        <a href="{% url 'schedule:create' %}?type=Seasonal" class="cta-hero" style="text-decoration: none; padding: 1rem 2rem; font-size: 14px; white-space: nowrap;">🍂 Seasonal Schedule</a>
+        <a href="{% url 'schedule:create' %}?type=OnDemand" class="cta-hero" style="text-decoration: none; padding: 1rem 2rem; font-size: 14px; white-space: nowrap;">📞 On-Demand Schedule</a>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-lg);">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+        <h3 style="margin: 0; font-weight: 800; color: var(--text-primary); font-size: 18px;">🤖 AI Query</h3>
+        <div>
+          <button id="aiRunBtn" class="cta-hero" type="button" style="padding: 0.6rem 1.2rem; font-size: 13px;">Run</button>
+        </div>
+      </div>
+      <div id="aiSuggestions" style="display: flex; flex-wrap: wrap; gap: .5rem; margin: .25rem 0 .75rem 0;">
+        <button type="button" class="ai-suggest" data-q="List all schedules" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">List schedules</button>
+        <button type="button" class="ai-suggest" data-q="List daily schedules" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">Daily only</button>
+        <button type="button" class="ai-suggest" data-q="Create seasonal schedule route name Holiday Shopping Loop effective date 2025-12-15 season Holiday start date 2025-12-15 end date 2026-01-05 operational capacity 75 public" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">Create seasonal</button>
+        <button type="button" class="ai-suggest" data-q="Create daily schedule route name Red Line Express effective date 2026-01-01 first run time 06:00 last run time 23:00 frequency 15 public" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">Create daily</button>
+        <button type="button" class="ai-suggest" data-q="Update schedule S-D-001 frequency minutes to 10" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">Update frequency</button>
+        <button type="button" class="ai-suggest" data-q="Delete schedule S-S-004" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">Delete example</button>
+      </div>
+      <textarea id="aiQueryInput" rows="2" placeholder="Describe your query or CRUD action..." style="width: 100%; padding: 0.8rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); resize: vertical; background: var(--bg-muted); color: var(--text-primary);"></textarea>
+      <div id="aiResult" style="margin-top: 1rem; padding: 0.8rem 1rem; background: var(--bg-muted); border: 1px dashed var(--border); border-radius: var(--radius); color: var(--text-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; white-space: pre-wrap; max-height: 320px; overflow: auto;"></div>
+    </div>
+
+    {% if schedules %}
+      <div style="background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-md);">
+        <table style="width: 100%; margin: 0; border: none; box-shadow: none;">
+          <thead>
+            <tr>
+              <th style="padding: 1.5rem 2rem; text-align: left; background: linear-gradient(135deg, var(--text-primary), #374151); color: white; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">ID</th>
+              <th style="padding: 1.5rem 2rem; text-align: left; background: linear-gradient(135deg, var(--text-primary), #374151); color: white; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">TYPE</th>
+              <th style="padding: 1.5rem 2rem; text-align: left; background: linear-gradient(135deg, var(--text-primary), #374151); color: white; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">ROUTE</th>
+              <th style="padding: 1.5rem 2rem; text-align: left; background: linear-gradient(135deg, var(--text-primary), #374151); color: white; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">DATE</th>
+              <th style="padding: 1.5rem 2rem; text-align: left; background: linear-gradient(135deg, var(--text-primary), #374151); color: white; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">PUBLIC</th>
+              <th style="padding: 1.5rem 2rem; text-align: center; background: linear-gradient(135deg, var(--text-primary), #374151); color: white; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in schedules %}
+              <tr style="border-bottom: 1px solid var(--border-light); transition: var(--transition);">
+                <td style="padding: 1.4rem 2rem; font-weight: 600; color: var(--text-primary); font-size: 15px;">{{ s.id }}</td>
+                <td style="padding: 1.4rem 2rem;">
+                  <span style="display:inline-flex; align-items:center; gap:.5rem; padding:.4rem 1rem; border-radius:20px; font-weight:600; font-size:13px; background:
+                    {% if s.type == 'Daily' %}#dbeafe
+                    {% elif s.type == 'Seasonal' %}#fef3c7
+                    {% elif s.type == 'OnDemand' %}#e5e7eb
+                    {% else %}#e5e7eb{% endif %}; color:
+                    {% if s.type == 'Daily' %}#1e40af
+                    {% elif s.type == 'Seasonal' %}#92400e
+                    {% elif s.type == 'OnDemand' %}#374151
+                    {% else %}#374151{% endif %};">
+                    {% if s.type == 'Daily' %}🗓️{% elif s.type == 'Seasonal' %}🍂{% elif s.type == 'OnDemand' %}📞{% else %}⏱️{% endif %}
+                    {{ s.type|default:"Schedule" }}
+                  </span>
+                </td>
+                <td style="padding: 1.4rem 2rem; color: var(--text-secondary); font-size: 15px;">{{ s.route|default:"-" }}</td>
+                <td style="padding: 1.4rem 2rem; color: var(--text-secondary); font-size: 15px;">{{ s.date|default:"-" }}</td>
+                <td style="padding: 1.4rem 2rem;">
+                  <span style="display:inline-block; padding:.4rem 1rem; border-radius:20px; font-weight:600; font-size:13px; background:
+                    {% if s.public == 'true' %}#d1fae5{% else %}#fee2e2{% endif %}; color:
+                    {% if s.public == 'true' %}#065f46{% else %}#991b1b{% endif %};">
+                    {{ s.public|default:"-" }}
+                  </span>
+                </td>
+                <td style="padding: 1.4rem 2rem; text-align: center;">
+                  <div style="display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap;">
+                    <a href="{% url 'schedule:detail' s.id %}?s={{ s.subject|urlencode }}" style="text-decoration: none; display:inline-block; padding:.6rem 1.2rem; background: transparent; border: 2px solid var(--primary); color: var(--primary); border-radius: var(--radius-full); font-weight: 600; font-size: 13px; transition: var(--transition);" onmouseover="this.style.background='rgba(16, 185, 129, 0.1)'; this.style.transform='translateY(-2px)';" onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)';">👁️ View</a>
+                    <a href="{% url 'schedule:update' s.id %}?s={{ s.subject|urlencode }}" style="text-decoration: none; display:inline-block; padding:.6rem 1.2rem; background: transparent; border: 2px solid var(--secondary); color: var(--secondary); border-radius: var(--radius-full); font-weight: 600; font-size: 13px; transition: var(--transition);" onmouseover="this.style.background='rgba(6, 182, 212, 0.1)'; this.style.transform='translateY(-2px)';" onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)';">✏️ Edit</a>
+                    <a href="{% url 'schedule:delete' s.id %}?s={{ s.subject|urlencode }}" style="text-decoration: none; display:inline-block; padding:.6rem 1.2rem; background: transparent; border: 2px solid #ef4444; color: #ef4444; border-radius: var(--radius-full); font-weight: 600; font-size: 13px; transition: var(--transition);" onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='translateY(-2px)';" onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)';">🗑️ Delete</a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Stats / Clear -->
+      <div style="margin-top: 1.5rem; padding: 1rem 1.5rem; background: var(--bg-muted); border-radius: var(--radius); color: var(--text-secondary); font-size: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <span><strong style="color: var(--text-primary);">Total:</strong> {{ schedules|length }} schedules in RDF store</span>
+        {% if request.GET.id_in or request.GET.type %}
+          <span style="display:flex; align-items:center; gap:.5rem;">
+            <strong>Filters applied</strong>
+            <a href="{% url 'schedule:list' %}" style="color: var(--primary); text-decoration: none; font-weight: 600;" onmouseover="this.style.textDecoration='underline';" onmouseout="this.style.textDecoration='none';">Clear</a>
+          </span>
+        {% endif %}
+      </div>
+    {% else %}
+      <p>No schedules found.</p>
+    {% endif %}
+  </div>
+
+  {% include 'core/partials/_footer.html' %}
+  <script>
+    (function(){
+      const btn = document.getElementById('aiRunBtn');
+      const input = document.getElementById('aiQueryInput');
+      const out = document.getElementById('aiResult');
+      const suggestions = document.querySelectorAll('.ai-suggest');
+
+      function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+      }
+
+      async function runQuery(){
+        const q = (input.value||'').trim();
+        if(!q){ out.textContent='Please enter a query.'; return; }
+        btn.disabled=true; btn.textContent='Running...'; out.textContent='';
+        try{
+          const csrf=getCookie('csrftoken');
+          const form=new URLSearchParams(); form.set('query', q);
+          const resp=await fetch('{% url "schedule:ai_query" %}', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','X-CSRFToken':csrf||''}, body:form.toString()});
+          const data=await resp.json();
+          if(data.error){ out.textContent='❌ '+data.error+'\n\n'+(data.sparql?('SPARQL:\n'+data.sparql):''); }
+          else if(data.mode==='update'){ out.textContent='✅ UPDATE executed.\n\nSPARQL:\n'+(data.sparql||''); setTimeout(function(){window.location.reload();},500); }
+          else if(data.mode==='create'){ out.textContent='✅ CREATED Schedule: '+(data.created_id||''); setTimeout(function(){window.location.reload();},500); }
+          else {
+            out.textContent='✅ SELECT executed.\n\nSPARQL:\n'+(data.sparql||'')+'\n\nResults:\n'+JSON.stringify(data.results||{},null,2);
+            // Extract IDs like itinerary does and refresh with id_in
+            try {
+              const bindings=(data.results && data.results.results && data.results.results.bindings)||[];
+              const ids=[];
+              for(const b of bindings){
+                if(b.id && b.id.value){ ids.push(b.id.value); }
+                else if(b.s && b.s.value){
+                  const s=b.s.value;
+                  let local=s.includes('#')?s.split('#').pop():s.split('/').pop();
+                  if(local.includes('/')) local=local.split('/').pop();
+                  if(local) ids.push(local);
+                }
+              }
+              if(ids.length>0){
+                const params=new URLSearchParams(window.location.search);
+                params.set('id_in', ids.join(','));
+                window.location.search=params.toString();
+              }
+            } catch(e) { /* ignore */ }
+          }        
+        }catch(e){ out.textContent='❌ '+(e && e.message?e.message:'Request failed'); }
+        finally{ btn.disabled=false; btn.textContent='Run'; }
+      }
+
+      if(btn){ btn.addEventListener('click', runQuery); }
+      if(suggestions&&suggestions.length){ suggestions.forEach(function(el){ el.addEventListener('click', function(){ input.value=el.getAttribute('data-q')||''; runQuery(); }); }); }
+      if(input){ input.addEventListener('keydown', function(ev){ if((ev.ctrlKey||ev.metaKey)&&ev.key==='Enter'){ ev.preventDefault(); runQuery(); } }); }
+    })();
+  </script>
+{% block styles %}
+<style>
+  .cta-hero {
+    position: relative; overflow: hidden; padding: 1rem 2rem; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; border-radius: var(--radius-full); font-weight: 700; box-shadow: 0 8px 24px rgba(16,185,129,.3); transition: var(--transition);
+  }
+  .cta-hero::before { content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent); transition: left .5s ease; }
+  .cta-hero:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(16,185,129,.4); }
+  .cta-hero:hover::before { left: 100%; }
+  @media (max-width: 768px) {
+    table { font-size: 13px; }
+    th, td { padding: 1rem !important; }
+  }
+  :root { --shadow-md: 0 10px 30px rgba(0,0,0,.05); }
+  .container { --radius: 14px; --radius-lg: 18px; --radius-full: 999px; --border: #e5e7eb; --border-light: #eef2f7; --bg-secondary: #fff; --bg-muted: #f8fafc; --text-primary: #111827; --text-secondary: #6b7280; --text-muted: #9ca3af; --primary: #10b981; --secondary: #06b6d4; --transition: all .2s ease; }
+}</style>
+{% endblock %}
+{% endblock %}
+
+

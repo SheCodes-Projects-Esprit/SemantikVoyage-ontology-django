@@ -1,0 +1,63 @@
+{% extends 'core/layout/_base.html' %}
+{% block title %}Schedule Form{% endblock %}
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 900px; margin: 40px auto; padding: 0 20px;">
+    <div style="display:flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+      <h2 style="font-weight: 900; margin: 0;">{{ is_update|yesno:"Update,Create" }} {{ type|default:"Schedule" }}</h2>
+      {% if not is_update %}
+      <div style="display:flex; gap:.5rem; flex-wrap: wrap;">
+        <a href="{% url 'schedule:create' %}?type=Daily" class="cta-hero" style="text-decoration:none; padding:.6rem 1rem; font-size:13px;">🗓️ Daily</a>
+        <a href="{% url 'schedule:create' %}?type=Seasonal" class="cta-hero" style="text-decoration:none; padding:.6rem 1rem; font-size:13px;">🍂 Seasonal</a>
+        <a href="{% url 'schedule:create' %}?type=OnDemand" class="cta-hero" style="text-decoration:none; padding:.6rem 1rem; font-size:13px;">📞 On-Demand</a>
+      </div>
+      {% endif %}
+    </div>
+    <form method="post" style="background: var(--bg-secondary); padding: 1.2rem 1.4rem; border-radius: var(--radius); border: 2px solid var(--border); box-shadow: var(--shadow-md);">
+      {% csrf_token %}
+      <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem;">
+        {{ form.schedule_id.errors }}
+        <div>{{ form.schedule_id.label_tag }} {{ form.schedule_id }}</div>
+
+        {% if form.route_name %}<div>{{ form.route_name.label_tag }} {{ form.route_name }}</div>{% endif %}
+        {% if form.effective_date %}<div>{{ form.effective_date.label_tag }} {{ form.effective_date }}</div>{% endif %}
+        {% if form.is_public %}
+          <div style="display:flex; align-items:center; gap:.5rem;">{{ form.is_public }} {{ form.is_public.label_tag }}</div>
+        {% endif %}
+
+        {% if form.first_run_time or form.season or form.booking_lead_time_hours %}
+          <div style="grid-column: 1 / -1; height: 1px; background: var(--border); margin: .2rem 0;"></div>
+        {% endif %}
+
+        {% if form.first_run_time %}<div>{{ form.first_run_time.label_tag }} {{ form.first_run_time }}</div>{% endif %}
+        {% if form.last_run_time %}<div>{{ form.last_run_time.label_tag }} {{ form.last_run_time }}</div>{% endif %}
+        {% if form.frequency_minutes %}<div>{{ form.frequency_minutes.label_tag }} {{ form.frequency_minutes }}</div>{% endif %}
+        {% if form.day_of_week_mask %}<div>{{ form.day_of_week_mask.label_tag }} {{ form.day_of_week_mask }}</div>{% endif %}
+
+        {% if form.season or form.booking_lead_time_hours %}
+          <div style="grid-column: 1 / -1; height: 1px; background: var(--border); margin: .2rem 0;"></div>
+        {% endif %}
+
+        {% if form.season %}<div>{{ form.season.label_tag }} {{ form.season }}</div>{% endif %}
+        {% if form.start_date %}<div>{{ form.start_date.label_tag }} {{ form.start_date }}</div>{% endif %}
+        {% if form.end_date %}<div>{{ form.end_date.label_tag }} {{ form.end_date }}</div>{% endif %}
+        {% if form.operational_capacity_percentage %}<div>{{ form.operational_capacity_percentage.label_tag }} {{ form.operational_capacity_percentage }}</div>{% endif %}
+
+        {% if form.booking_lead_time_hours %}
+          <div style="grid-column: 1 / -1; height: 1px; background: var(--border); margin: .2rem 0;"></div>
+        {% endif %}
+
+        {% if form.booking_lead_time_hours %}<div>{{ form.booking_lead_time_hours.label_tag }} {{ form.booking_lead_time_hours }}</div>{% endif %}
+        {% if form.service_window_start %}<div>{{ form.service_window_start.label_tag }} {{ form.service_window_start }}</div>{% endif %}
+        {% if form.service_window_end %}<div>{{ form.service_window_end.label_tag }} {{ form.service_window_end }}</div>{% endif %}
+        {% if form.max_wait_time_minutes %}<div>{{ form.max_wait_time_minutes.label_tag }} {{ form.max_wait_time_minutes }}</div>{% endif %}
+      </div>
+      <div style="margin-top: 1rem;">
+        <button type="submit" class="cta-hero">Save</button>
+      </div>
+    </form>
+  </div>
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}
+
+

@@ -1,0 +1,15 @@
+{% extends 'core/layout/_base.html' %}
+{% block title %}Delete Schedule{% endblock %}
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 700px; margin: 40px auto; padding: 0 20px;">
+    <h2 style="font-weight: 900; color: var(--text-primary);">Delete Schedule {{ id }}?</h2>
+    <form method="post" style="background: var(--bg-secondary); padding: 1rem 1.2rem; border-radius: var(--radius); border: 2px solid var(--border); box-shadow: var(--shadow-md);">
+      {% csrf_token %}
+      <button type="submit" class="cta-hero" style="background: #ef4444;">Confirm Delete</button>
+    </form>
+  </div>
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}
+
+
