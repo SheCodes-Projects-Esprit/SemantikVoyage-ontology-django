@@ -1,7 +1,10 @@
+# Complete replacement for company/utils/ontology_manager.py
+# This ensures ALL functions use the named graph correctly
+
 import time
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, SPARQLUpdateStore
 from rdflib import Graph
-
+import requests
 
 SPARQL_PREFIXES = """
 PREFIX : <http://www.transport-ontology.org/travel#>
@@ -11,11 +14,13 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 """
 
 NS = "http://www.transport-ontology.org/travel#"
+GRAPH_URI = "http://www.transport-ontology.org/travel"
 FUSEKI_QUERY_URL = "http://localhost:3030/transport_db/query"
 FUSEKI_UPDATE_URL = "http://localhost:3030/transport_db/update"
 
 
 def _run_query(query: str):
+    """Query default graph only (for backward compatibility)"""
     store = SPARQLStore(FUSEKI_QUERY_URL)
     g = Graph(store=store)
     res = g.query(SPARQL_PREFIXES + query)
@@ -33,16 +38,81 @@ def _run_query(query: str):
     return {"results": {"bindings": bindings}}
 
 
+def query_all_graphs(sparql: str):
+    """Query across ALL graphs (default + named) - preferred for reading"""
+    headers = {'Accept': 'application/sparql-results+json'}
+    try:
+        resp = requests.get(FUSEKI_QUERY_URL, params={'query': SPARQL_PREFIXES + sparql}, headers=headers, timeout=15)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        print(f"[company/query_all_graphs] Error: {e}")
+        return {"results": {"bindings": []}}
+
+
 def _run_update(update: str):
+    """Basic update to default graph (legacy, avoid using)"""
+    print(f"[DEBUG] Running SPARQL UPDATE:\n{update}")
     store = SPARQLUpdateStore()
     store.open((FUSEKI_QUERY_URL, FUSEKI_UPDATE_URL))
     try:
-        store.update(SPARQL_PREFIXES + update)
+        store.update(update)
+        print("[SUCCESS] Update sent to Fuseki!")
+    except Exception as e:
+        print(f"[FUSEKI ERROR] {e}")
+        raise e
     finally:
         try:
             store.close()
-        except Exception:
+        except:
             pass
+
+
+def company_sparql_update(triples: str):
+    """
+    Company-scoped SPARQL UPDATE that guarantees using the ontology named graph.
+    Takes raw triples (without INSERT DATA wrapper) and properly formats them.
+    
+    Args:
+        triples: Raw RDF triples like ":company_X a :BusCompany ; :companyName 'X' ."
+    """
+    # Clean up any accidental wrapper keywords from LLM
+    text = triples.strip()
+    if 'INSERT DATA' in text.upper():
+        # Extract just the triples
+        import re
+        match = re.search(r'INSERT\s+DATA\s*\{(.+)\}', text, re.IGNORECASE | re.DOTALL)
+        if match:
+            text = match.group(1).strip()
+        # Remove GRAPH wrapper if present
+        match = re.search(r'GRAPH\s*<[^>]+>\s*\{(.+)\}', text, re.IGNORECASE | re.DOTALL)
+        if match:
+            text = match.group(1).strip()
+    
+    # Build the proper INSERT DATA with GRAPH
+    sparql = f"""
+INSERT DATA {{
+  GRAPH <{GRAPH_URI}> {{
+    {text}
+  }}
+}}
+"""
+    
+    print(f"[DEBUG] Executing SPARQL:\n{sparql}")
+    
+    # Use requests directly for better error messages
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    payload = {'update': SPARQL_PREFIXES + sparql}
+    
+    try:
+        resp = requests.post(FUSEKI_UPDATE_URL, data=payload, headers=headers, timeout=20)
+        if resp.status_code != 200:
+            raise Exception(f"Fuseki update failed: {resp.status_code} - {resp.text}")
+        print("[SUCCESS] Company update executed!")
+        return True
+    except Exception as e:
+        print(f"[company_sparql_update] Error: {e}")
+        raise
 
 
 def escape_sparql_string(value):
@@ -52,9 +122,7 @@ def escape_sparql_string(value):
 
 
 def _resolve_company_subject_by_name(name: str):
-    """Return a SPARQL node for the company resource that has :companyName name.
-    Prefer absolute angle-bracket URI to be safe in updates.
-    """
+    """Return a SPARQL node for the company resource that has :companyName name."""
     sname = escape_sparql_string(name)
     q = f"""
     SELECT ?s ?type WHERE {{
@@ -62,7 +130,8 @@ def _resolve_company_subject_by_name(name: str):
       OPTIONAL {{ ?s rdf:type ?type }}
     }} LIMIT 1
     """
-    res = _run_query(q)
+    # Use query_all_graphs to find companies in named graph
+    res = query_all_graphs(q)
     bindings = res.get('results', {}).get('bindings', [])
     if not bindings:
         return None, None
@@ -81,68 +150,65 @@ def create_company(data):
 
     # Note: Ontology uses subclass types for companies. If 'type' provided, set it; else default :Company
     company_type = str(data.get('type') or 'Company')
-    triples = f"""
-    {uri} a :{company_type} ;
-          :companyName "{escape_sparql_string(name)}"
-    """
+    triples = f"{uri} a :{company_type} ;\n      :companyName \"{escape_sparql_string(name)}\""
 
     # Common properties in ontology
     if data.get('number_of_employees') not in (None, ""):
         try:
-            triples += f" ;\n          :numberOfEmployees {int(data['number_of_employees'])}"
+            triples += f" ;\n      :numberOfEmployees {int(data['number_of_employees'])}"
         except (ValueError, TypeError):
             pass
     if data.get('founded_year'):
-        triples += f" ;\n          :foundedYear \"{escape_sparql_string(data['founded_year'])}\""
+        triples += f" ;\n      :foundedYear \"{escape_sparql_string(data['founded_year'])}\""
     if data.get('headquarters_location'):
-        triples += f" ;\n          :headquartersLocation \"{escape_sparql_string(data['headquarters_location'])}\""
+        triples += f" ;\n      :headquartersLocation \"{escape_sparql_string(data['headquarters_location'])}\""
 
     # Subclass specific
     if company_type == 'BusCompany':
         if data.get('number_of_bus_lines') not in (None, ""):
-            triples += f" ;\n          :numberOfBusLines {int(data['number_of_bus_lines'])}"
+            triples += f" ;\n      :numberOfBusLines {int(data['number_of_bus_lines'])}"
         if data.get('average_bus_age') not in (None, ""):
-            triples += f" ;\n          :averageBusAge {float(data['average_bus_age']):.1f}"
+            triples += f" ;\n      :averageBusAge {float(data['average_bus_age']):.1f}"
         if data.get('ticket_price') not in (None, ""):
-            triples += f" ;\n          :ticketPrice {float(data['ticket_price']):.2f}"
+            triples += f" ;\n      :ticketPrice {float(data['ticket_price']):.2f}"
         if str(data.get('eco_friendly_fleet', '')).lower() in ['true', 'false']:
-            triples += f" ;\n          :ecoFriendlyFleet {str(data['eco_friendly_fleet']).lower()}"
+            triples += f" ;\n      :ecoFriendlyFleet {str(data['eco_friendly_fleet']).lower()}"
     elif company_type == 'MetroCompany':
         if data.get('number_of_lines') not in (None, ""):
-            triples += f" ;\n          :numberOfLines {int(data['number_of_lines'])}"
+            triples += f" ;\n      :numberOfLines {int(data['number_of_lines'])}"
         if data.get('total_track_length') not in (None, ""):
-            triples += f" ;\n          :totalTrackLength {float(data['total_track_length']):.1f}"
+            triples += f" ;\n      :totalTrackLength {float(data['total_track_length']):.1f}"
         if data.get('automation_level'):
-            triples += f" ;\n          :automationLevel \"{escape_sparql_string(data['automation_level'])}\""
+            triples += f" ;\n      :automationLevel \"{escape_sparql_string(data['automation_level'])}\""
         if data.get('daily_passengers') not in (None, ""):
-            triples += f" ;\n          :dailyPassengers {int(data['daily_passengers'])}"
+            triples += f" ;\n      :dailyPassengers {int(data['daily_passengers'])}"
     elif company_type == 'TaxiCompany':
         if data.get('number_of_vehicles') not in (None, ""):
-            triples += f" ;\n          :numberOfVehicles {int(data['number_of_vehicles'])}"
+            triples += f" ;\n      :numberOfVehicles {int(data['number_of_vehicles'])}"
         if str(data.get('booking_app', '')).lower() in ['true', 'false']:
-            triples += f" ;\n          :bookingApp {str(data['booking_app']).lower()}"
+            triples += f" ;\n      :hasBookingApp {str(data['booking_app']).lower()}"
         if data.get('average_fare_per_km') not in (None, ""):
-            triples += f" ;\n          :averageFarePerKm {float(data['average_fare_per_km']):.2f}"
+            triples += f" ;\n      :averageFarePerKm {float(data['average_fare_per_km']):.2f}"
     elif company_type == 'BikeSharingCompany':
         if data.get('number_of_stations') not in (None, ""):
-            triples += f" ;\n          :numberOfStations {int(data['number_of_stations'])}"
+            triples += f" ;\n      :numberOfStations {int(data['number_of_stations'])}"
         if data.get('bike_count') not in (None, ""):
-            triples += f" ;\n          :bikeCount {int(data['bike_count'])}"
+            triples += f" ;\n      :bikeCount {int(data['bike_count'])}"
         if data.get('subscription_price') not in (None, ""):
-            triples += f" ;\n          :subscriptionPrice {float(data['subscription_price']):.2f}"
+            triples += f" ;\n      :subscriptionPrice {float(data['subscription_price']):.2f}"
         if str(data.get('electric_bikes', '')).lower() in ['true', 'false']:
-            triples += f" ;\n          :electricBikes {str(data['electric_bikes']).lower()}"
+            triples += f" ;\n      :electricBikes {str(data['electric_bikes']).lower()}"
 
     triples += " ."
 
-    sparql = f"INSERT DATA {{ {triples} }}"
-    _run_update(sparql)
-    time.sleep(0.2)
+    # Use company_sparql_update to write to named graph
+    company_sparql_update(triples)
+    time.sleep(0.3)  # Give Fuseki time to index
     return name
 
 
 def get_company(name):
-    # Try synthetic URI first
+    # Try synthetic URI first across all graphs
     uri = f":company_{str(name).replace(' ', '_')}"
     q_direct = f"""
     SELECT ?prop ?val WHERE {{
@@ -150,23 +216,25 @@ def get_company(name):
       FILTER(isIRI(?val) || isLiteral(?val))
     }}
     """
-    results = _run_query(q_direct)
+    results = query_all_graphs(q_direct)
     rows = [(b['prop']['value'], b['val']['value']) for b in results.get('results', {}).get('bindings', [])]
-    # Fallback: resolve by companyName in ontology
-    used_node = uri
+    
+    # Fallback: resolve by companyName
     if not rows:
         node, t_val = _resolve_company_subject_by_name(name)
         if not node:
             return None
-        used_node = node
         q_byname = f"""
         SELECT ?prop ?val WHERE {{
           {node} ?prop ?val .
           FILTER(isIRI(?val) || isLiteral(?val))
         }}
         """
-        results = _run_query(q_byname)
+        results = query_all_graphs(q_byname)
         rows = [(b['prop']['value'], b['val']['value']) for b in results.get('results', {}).get('bindings', [])]
+
+    if not rows:
+        return None
 
     data = {'name': name}
     ctype = 'Company'
@@ -205,7 +273,7 @@ def get_company(name):
             data['daily_passengers'] = val
         elif prop == 'numberOfVehicles':
             data['number_of_vehicles'] = val
-        elif prop == 'bookingApp':
+        elif prop == 'hasBookingApp':
             data['booking_app'] = val
         elif prop == 'averageFarePerKm':
             data['average_fare_per_km'] = val
@@ -224,32 +292,131 @@ def get_company(name):
 
 
 def list_companies():
+    """
+    List companies from BOTH default graph AND named graph
+    CRITICAL FIX: Uses full URIs to handle namespace inconsistencies
+    """
+    # Use full URIs instead of prefixes to avoid namespace issues
     q = """
     SELECT ?name ?type ?employees ?year ?hq ?busLines ?metroLines ?vehicles ?stations WHERE {
-      ?s rdf:type/rdfs:subClassOf* :Company .
-      OPTIONAL { ?s :companyName ?name }
-      OPTIONAL { ?s rdf:type ?type }
-      OPTIONAL { ?s :numberOfEmployees ?employees }
-      OPTIONAL { ?s :foundedYear ?year }
-      OPTIONAL { ?s :headquartersLocation ?hq }
-      OPTIONAL { ?s :numberOfBusLines ?busLines }
-      OPTIONAL { ?s :numberOfLines ?metroLines }
-      OPTIONAL { ?s :numberOfVehicles ?vehicles }
-      OPTIONAL { ?s :numberOfStations ?stations }
+      {
+        # Default graph - try both namespace patterns
+        ?s rdf:type/rdfs:subClassOf* :Company .
+        OPTIONAL { 
+          { ?s <http://www.transport-ontology.org/companyName> ?name }
+          UNION
+          { ?s <http://www.transport-ontology.org/travel#companyName> ?name }
+        }
+        OPTIONAL { ?s rdf:type ?type }
+        OPTIONAL { 
+          { ?s <http://www.transport-ontology.org/numberOfEmployees> ?employees }
+          UNION
+          { ?s <http://www.transport-ontology.org/travel#numberOfEmployees> ?employees }
+        }
+        OPTIONAL { 
+          { ?s <http://www.transport-ontology.org/foundedYear> ?year }
+          UNION
+          { ?s <http://www.transport-ontology.org/travel#foundedYear> ?year }
+        }
+        OPTIONAL { 
+          { ?s <http://www.transport-ontology.org/headquartersLocation> ?hq }
+          UNION
+          { ?s <http://www.transport-ontology.org/travel#headquartersLocation> ?hq }
+        }
+        OPTIONAL { 
+          { ?s <http://www.transport-ontology.org/numberOfBusLines> ?busLines }
+          UNION
+          { ?s <http://www.transport-ontology.org/travel#numberOfBusLines> ?busLines }
+        }
+        OPTIONAL { 
+          { ?s <http://www.transport-ontology.org/numberOfLines> ?metroLines }
+          UNION
+          { ?s <http://www.transport-ontology.org/travel#numberOfLines> ?metroLines }
+        }
+        OPTIONAL { 
+          { ?s <http://www.transport-ontology.org/numberOfVehicles> ?vehicles }
+          UNION
+          { ?s <http://www.transport-ontology.org/travel#numberOfVehicles> ?vehicles }
+        }
+        OPTIONAL { 
+          { ?s <http://www.transport-ontology.org/numberOfStations> ?stations }
+          UNION
+          { ?s <http://www.transport-ontology.org/travel#numberOfStations> ?stations }
+        }
+      }
+      UNION
+      {
+        # Named graph - try both namespace patterns
+        GRAPH <http://www.transport-ontology.org/travel> {
+          ?s rdf:type/rdfs:subClassOf* :Company .
+          OPTIONAL { 
+            { ?s <http://www.transport-ontology.org/companyName> ?name }
+            UNION
+            { ?s <http://www.transport-ontology.org/travel#companyName> ?name }
+          }
+          OPTIONAL { ?s rdf:type ?type }
+          OPTIONAL { 
+            { ?s <http://www.transport-ontology.org/numberOfEmployees> ?employees }
+            UNION
+            { ?s <http://www.transport-ontology.org/travel#numberOfEmployees> ?employees }
+          }
+          OPTIONAL { 
+            { ?s <http://www.transport-ontology.org/foundedYear> ?year }
+            UNION
+            { ?s <http://www.transport-ontology.org/travel#foundedYear> ?year }
+          }
+          OPTIONAL { 
+            { ?s <http://www.transport-ontology.org/headquartersLocation> ?hq }
+            UNION
+            { ?s <http://www.transport-ontology.org/travel#headquartersLocation> ?hq }
+          }
+          OPTIONAL { 
+            { ?s <http://www.transport-ontology.org/numberOfBusLines> ?busLines }
+            UNION
+            { ?s <http://www.transport-ontology.org/travel#numberOfBusLines> ?busLines }
+          }
+          OPTIONAL { 
+            { ?s <http://www.transport-ontology.org/numberOfLines> ?metroLines }
+            UNION
+            { ?s <http://www.transport-ontology.org/travel#numberOfLines> ?metroLines }
+          }
+          OPTIONAL { 
+            { ?s <http://www.transport-ontology.org/numberOfVehicles> ?vehicles }
+            UNION
+            { ?s <http://www.transport-ontology.org/travel#numberOfVehicles> ?vehicles }
+          }
+          OPTIONAL { 
+            { ?s <http://www.transport-ontology.org/numberOfStations> ?stations }
+            UNION
+            { ?s <http://www.transport-ontology.org/travel#numberOfStations> ?stations }
+          }
+        }
+      }
+      FILTER(BOUND(?name))
     }
     ORDER BY ?name
     """
-    results = _run_query(q)
+    
+    # Use query_all_graphs (which doesn't restrict to default graph)
+    results = query_all_graphs(q)
     rows = []
+    seen_names = set()  # Avoid duplicates if company exists in both graphs
+    
     for b in results.get('results', {}).get('bindings', []):
+        name = b.get('name', {}).get('value', '')
+        if not name or name in seen_names:
+            continue
+        seen_names.add(name)
+        
         t = b.get('type', {}).get('value', '')
         ctype = 'Company'
         if 'BusCompany' in t: ctype = 'Bus'
         elif 'MetroCompany' in t: ctype = 'Metro'
         elif 'TaxiCompany' in t: ctype = 'Taxi'
         elif 'BikeSharingCompany' in t: ctype = 'BikeSharing'
+        
         rows.append({
-            "name": b.get('name', {}).get('value', ''),
+            "name": name,
             "type": ctype,
             "employees": b.get('employees', {}).get('value'),
             "year": b.get('year', {}).get('value'),
@@ -262,24 +429,157 @@ def list_companies():
     return rows
 
 
+def delete_company(name):
+    """
+    Delete company - handles BOTH namespace patterns
+    Uses full URIs to avoid prefix issues
+    """
+    import requests
+    
+    escaped_name = escape_sparql_string(name)
+    
+    # Search with BOTH namespace patterns using full URIs
+    find_query = f"""
+SELECT ?company WHERE {{
+  {{
+    # Search in default graph with both namespaces
+    {{
+      ?company <http://www.transport-ontology.org/companyName> "{escaped_name}" .
+    }}
+    UNION
+    {{
+      ?company <http://www.transport-ontology.org/travel#companyName> "{escaped_name}" .
+    }}
+  }}
+  UNION
+  {{
+    # Search in named graph with both namespaces
+    GRAPH <http://www.transport-ontology.org/travel> {{
+      {{
+        ?company <http://www.transport-ontology.org/companyName> "{escaped_name}" .
+      }}
+      UNION
+      {{
+        ?company <http://www.transport-ontology.org/travel#companyName> "{escaped_name}" .
+      }}
+    }}
+  }}
+}}
+"""
+    
+    print(f"\n[DELETE] Searching for company '{name}' with both namespace patterns...")
+    
+    # Query directly with requests (no prefixes to avoid confusion)
+    headers = {'Accept': 'application/sparql-results+json'}
+    try:
+        resp = requests.get(
+            FUSEKI_QUERY_URL, 
+            params={'query': find_query}, 
+            headers=headers, 
+            timeout=15
+        )
+        resp.raise_for_status()
+        results = resp.json()
+        bindings = results.get('results', {}).get('bindings', [])
+        print(f"[DELETE] Found {len(bindings)} instance(s)")
+        
+        for b in bindings:
+            print(f"  - {b.get('company', {}).get('value')}")
+            
+    except Exception as e:
+        print(f"[DELETE ERROR] Search failed: {e}")
+        return False
+    
+    if not bindings:
+        print(f"[DELETE] ❌ No company found with name '{name}'")
+        return False
+    
+    # Step 2: Delete each found URI from ALL possible locations
+    deleted_count = 0
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    
+    for binding in bindings:
+        uri = binding.get('company', {}).get('value', '')
+        
+        if not uri:
+            continue
+        
+        print(f"\n[DELETE] Deleting: {uri}")
+        
+        # Delete from default graph
+        delete_default = f"DELETE WHERE {{ <{uri}> ?p ?o }}"
+        try:
+            payload = {'update': delete_default}
+            resp = requests.post(FUSEKI_UPDATE_URL, data=payload, headers=headers, timeout=15)
+            if resp.status_code in [200, 204]:
+                print(f"[DELETE] ✓ Deleted from default graph")
+                deleted_count += 1
+            else:
+                print(f"[DELETE] Default graph delete returned: {resp.status_code}")
+        except Exception as e:
+            print(f"[DELETE] Default graph error: {e}")
+        
+        # Delete from named graph - CRITICAL FIX
+        delete_named = f"""
+DELETE WHERE {{
+  GRAPH <http://www.transport-ontology.org/travel> {{
+    <{uri}> ?p ?o
+  }}
+}}
+"""
+        try:
+            payload = {'update': delete_named}
+            resp = requests.post(FUSEKI_UPDATE_URL, data=payload, headers=headers, timeout=15)
+            if resp.status_code in [200, 204]:
+                print(f"[DELETE] ✓ Deleted from NAMED graph <http://www.transport-ontology.org/travel>")
+                deleted_count += 1
+            else:
+                print(f"[DELETE] Named graph delete returned: {resp.status_code}")
+        except Exception as e:
+            print(f"[DELETE] Named graph error: {e}")
+    
+    if deleted_count > 0:
+        print(f"\n[DELETE] ✓✓✓ Successfully deleted from {deleted_count} location(s)")
+        import time
+        time.sleep(0.5)
+        return True
+    else:
+        print(f"\n[DELETE] ✗✗✗ No instances were deleted")
+        return False  
+
 def update_company(old_name, new_data):
     delete_company(old_name)
     return create_company(new_data)
 
 
-def delete_company(name):
-    # Try both synthetic URI and resolved subject
-    candidates = []
-    candidates.append(f":company_{str(name).replace(' ', '_')}")
-    node, _ = _resolve_company_subject_by_name(name)
-    if node:
-        candidates.append(node)
-    ok = False
-    for node in candidates:
-        try:
-            _run_update(f"DELETE WHERE {{ {node} ?p ?o }}")
-            ok = True
-        except Exception:
-            pass
-    return ok
 
+
+def cleanup_company_duplicates(name: str):
+    """Keep preferred :company_<Name> and delete other subjects having the same :companyName."""
+    preferred = f":company_{name.replace(' ', '_')}"
+    q = f'SELECT ?s WHERE {{ ?s :companyName "{escape_sparql_string(name)}" }}'
+    res = query_all_graphs(q)
+    for b in res.get('results', {}).get('bindings', []):
+        s = b.get('s', {}).get('value')
+        if not s or s.endswith(preferred.replace(':', NS)):
+            continue
+        _delete_node_everywhere(f"<{s}>")
+
+
+def _delete_node_everywhere(node: str):
+    """Delete triples for node from all graphs"""
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    
+    # Delete from default graph
+    try:
+        payload = {'update': SPARQL_PREFIXES + f"DELETE WHERE {{ {node} ?p ?o }}"}
+        requests.post(FUSEKI_UPDATE_URL, data=payload, headers=headers, timeout=15)
+    except:
+        pass
+    
+    # Delete from named graph
+    try:
+        payload = {'update': SPARQL_PREFIXES + f"WITH <{GRAPH_URI}> DELETE WHERE {{ {node} ?p ?o }}"}
+        requests.post(FUSEKI_UPDATE_URL, data=payload, headers=headers, timeout=15)
+    except:
+        pass
