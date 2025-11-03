@@ -1,39 +1,32 @@
 {% extends 'core/layout/_base.html' %}
-{% block title %}Companies - TRANSPERSO{% endblock %}
+{% block title %}Cities - TRANSPERSO{% endblock %}
 
 {% block body %}
   {% include 'core/partials/_navbar.html' %}
   <div class="container" style="max-width: 1300px; margin: 60px auto;">
-    
-    <!-- AI BOX -->
-    <form method="post" action="{% url 'company:ai' %}" style="margin-bottom: 1.5rem; background: #fff; border: 2px solid var(--border); border-radius: 12px; padding: 1rem;">
+    <form method="post" action="{% url 'city:ai' %}" style="margin-bottom: 1.5rem; background: #fff; border: 2px solid var(--border); border-radius: 12px; padding: 1rem;">
       {% csrf_token %}
-      <label style="font-weight: 600;">Ask AI to manage companies</label>
-      <p style="font-size: 12px; color: var(--text-muted); margin: .25rem 0 1rem;">
-        Examples: "List all taxi companies", "Add bus company SOTRA", "Update RATP set employees=5000"
-      </p>
+      <label style="font-weight: 600;">Ask AI to manage cities</label>
+      <p style="font-size: 12px; color: var(--text-muted); margin: .25rem 0 1rem;">Examples: "List all cities", "Add city with name Sousse", "Delete city where name = Tunis"</p>
       <div style="display:flex; gap:.75rem; align-items:center;">
-        <input type="text" name="q" placeholder="Type a command..." style="flex:1; padding:.9rem; border:2px solid var(--border); border-radius:10px;" />
+        <input type="text" name="q" placeholder="Type a command in English..." style="flex:1; padding:.9rem; border:2px solid var(--border); border-radius:10px;" />
         <button class="cta-btn" type="submit">Run</button>
-        <a href="{% url 'company:list' %}" class="cta-ghost" style="padding:.8rem 1.2rem;">Clear</a>
+        <a href="{% url 'city:list' %}" class="cta-ghost" style="padding:.8rem 1.2rem;">Clear</a>
       </div>
     </form>
-
-    <!-- HEADER -->
     <div style="display: flex; justify-content: space-between; margin-bottom: 2rem;">
       <div>
-        <h2>All Companies</h2>
+        <h2>All Cities</h2>
         <p>RDF Triplestore – Name-based</p>
       </div>
       <div style="display: flex; gap: 1rem;">
-        <a href="{% url 'company:create' %}?type=Bus" class="cta-hero">Bus</a>
-        <a href="{% url 'company:create' %}?type=Metro" class="cta-hero">Metro</a>
-        <a href="{% url 'company:create' %}?type=Taxi" class="cta-hero">Taxi</a>
-        <a href="{% url 'company:create' %}?type=BikeSharing" class="cta-hero">Bike Sharing</a>
+        <a href="{% url 'city:create' %}?type=Capital" class="cta-hero">Capital</a>
+        <a href="{% url 'city:create' %}?type=Metropolitan" class="cta-hero">Metropolitan</a>
+        <a href="{% url 'city:create' %}?type=Touristic" class="cta-hero">Touristic</a>
+        <a href="{% url 'city:create' %}?type=Industrial" class="cta-hero">Industrial</a>
       </div>
     </div>
 
-    <!-- MESSAGES -->
     {% if messages %}
       <div style="margin-bottom: 1.5rem;">
         {% for message in messages %}
@@ -47,62 +40,45 @@
       </div>
     {% endif %}
 
-    <!-- SPARQL PREVIEW -->
-    {% if ai_query %}
-      <div style="background: #f8fafc; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid #e2e8f0;">
-        <strong>AI Query:</strong> {{ ai_query }}<br>
-        <strong>SPARQL:</strong>
-        <pre style="background:#1e293b; color:#a5f3fc; padding:1rem; border-radius:8px; overflow-x:auto; font-size:0.9rem; margin:0.5rem 0;">{{ ai_sparql }}</pre>
-      </div>
-    {% endif %}
-
-    <!-- TABLE -->
-    {% if companies %}
+    {% if cities %}
       <table style="width: 100%; table-layout: fixed; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
         <thead style="background: #1e293b; color: white;">
           <tr>
-            <th style="padding: 1rem; text-align: left;">Company</th>
+            <th style="padding: 1rem; text-align: left;">City</th>
             <th style="padding: 1rem;">Type</th>
-            <th style="padding: 1rem;">Employees</th>
-            <th style="padding: 1rem;">Founded</th>
-            <th style="padding: 1rem;">HQ</th>
+            <th style="padding: 1rem;">Population</th>
+            <th style="padding: 1rem;">Area</th>
             <th style="padding: 1rem;">Special</th>
             <th style="padding: 1rem;">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {% for c in companies %}
+          {% for c in cities %}
             <tr style="border-bottom: 1px solid #e2e8f0;">
               <td style="padding: 1rem; font-weight: 600; font-size: 1.1rem;">
-                <a href="{% url 'company:detail' c.name %}" style="color: #1e40af; text-decoration: none;">{{ c.name }}</a>
+                {{ c.name }}
               </td>
               <td style="padding: 1rem; text-align: center;">
                 <span style="padding: 0.4rem 1rem; border-radius: 20px; font-size: 13px; font-weight: 600;
-                  background: {% if c.type == 'Bus' %}#dbeafe{% elif c.type == 'Metro' %}#d1fae5{% elif c.type == 'Taxi' %}#fef3c7{% elif c.type == 'BikeSharing' %}#fee2e2{% else %}#e5e7eb{% endif %};
-                  color: {% if c.type == 'Bus' %}#1e40af{% elif c.type == 'Metro' %}#065f46{% elif c.type == 'Taxi' %}#92400e{% elif c.type == 'BikeSharing' %}#991b1b{% else %}#374151{% endif %};">
-                  {{ c.type|default:"—" }}
+                  background: {% if c.type == 'Capital' %}#dbeafe{% elif c.type == 'Metropolitan' %}#d1fae5{% elif c.type == 'Touristic' %}#fef3c7{% else %}#fee2e2{% endif %};
+                  color: {% if c.type == 'Capital' %}#1e40af{% elif c.type == 'Metropolitan' %}#065f46{% elif c.type == 'Touristic' %}#92400e{% else %}#991b1b{% endif %};">
+                  {{ c.type }}
                 </span>
               </td>
-              <td style="padding: 1rem; text-align: center;">{{ c.employees|default:"—" }}</td>
-              <td style="padding: 1rem; text-align: center;">{{ c.year|default:"—" }}</td>
-              <td style="padding: 1rem; text-align: center;">{{ c.hq|default:"—" }}</td>
-              <td style="padding: 1rem; font-size: 0.95rem; text-align: center;">
-                {% if c.type == 'Bus' and c.busLines %}
-                  Lines: {{ c.busLines }}
-                {% elif c.type == 'Metro' and c.metroLines %}
-                  Lines: {{ c.metroLines }}
-                {% elif c.type == 'Taxi' and c.vehicles %}
-                  Vehicles: {{ c.vehicles }} | Fare/km: ${{ c.fare|default:"?" }}
-                {% elif c.type == 'BikeSharing' and c.stations %}
-                  Stations: {{ c.stations }} | Bikes: {{ c.bikes|default:"?" }}
-                {% else %}—
+              <td style="padding: 1rem; text-align: center;">{{ c.population|floatformat:0 }}</td>
+              <td style="padding: 1rem; text-align: center;">{{ c.area|floatformat:1 }} km²</td>
+              <td style="padding: 1rem; font-size: 0.95rem;">
+                {% if c.type == "Capital" %}Ministries: {{ c.numberOfMinistries|default:"?" }}
+                {% elif c.type == "Metropolitan" %}Districts: {{ c.numberOfDistricts|default:"?" }}
+                {% elif c.type == "Touristic" %}Visitors: {{ c.annualVisitors|default:"?" }}
+                {% elif c.type == "Industrial" %}Factories: {{ c.numberOfFactories|default:"?" }}
                 {% endif %}
               </td>
               <td style="padding: 1rem; text-align: center;">
-                <div style="display:inline-flex; gap: .5rem; align-items:center;">
-                  <a href="{% url 'company:detail' c.name %}" class="cta-ghost" style="padding: .35rem .75rem;">View</a>
-                  <a href="{% url 'company:update' c.name %}" style="color:#1e40af; text-decoration:underline;">Edit</a>
-                  <a href="{% url 'company:delete' c.name %}" style="border:1px solid #ef4444; border-radius:8px; color:#ef4444; padding:.35rem .5rem;">Delete</a>
+                <div style="display:inline-flex; gap: .5rem; align-items:center; flex-wrap:wrap; justify-content:center;">
+                  <a href="{% url 'city:detail' c.name %}" class="cta-ghost" style="padding: .35rem .75rem;">View</a>
+                  <a href="{% url 'city:update' c.name %}" style="display:inline-block; padding:.35rem .5rem; color:#1e40af; text-decoration:underline;">Edit</a>
+                  <a href="{% url 'city:delete' c.name %}" style="display:inline-block; padding:.35rem .5rem; border:1px solid #ef4444; border-radius:8px; color:#ef4444;">Delete</a>
                 </div>
               </td>
             </tr>
@@ -111,8 +87,8 @@
       </table>
     {% else %}
       <div style="text-align: center; padding: 5rem; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px;">
-        <h3>No companies match</h3>
-        <p>Try: "List all companies"</p>
+        <h3>No cities yet</h3>
+        <p>Create your first city!</p>
       </div>
     {% endif %}
   </div>
