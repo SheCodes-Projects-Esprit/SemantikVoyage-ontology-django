@@ -1,12 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.http import JsonResponse
 
 from .models import (
     Ticket, TicketSimple, TicketSenior, TicketÉtudiant,
     AbonnementHebdomadaire, AbonnementMensuel
 )
 from .forms import TicketForm
+from .utils.ai_nl_interface import ai_generate_and_execute
 
 # Import des services ontologie
 try:
@@ -24,10 +26,13 @@ def list_tickets(request):
     """List all tickets grouped by type"""
     tickets = []
     for subclass in Ticket.__subclasses__():
-        qs = subclass.objects.all()
+        qs = subclass.objects.all().order_by('-id')  # Plus récent en premier
         for obj in qs:
             obj.ticket_type = subclass.__name__
             tickets.append(obj)
+    
+    # Trier par ID décroissant pour avoir les plus récents en premier
+    tickets.sort(key=lambda x: x.id, reverse=True)
     
     # Query ontology for additional ticket data
     ontology_tickets = []
@@ -159,4 +164,14 @@ def delete_ticket(request, pk):
         'object': ticket,
         'type': 'ticket'
     })
+
+
+def ticket_ai_query(request):
+    """Handle AI Query requests for tickets"""
+    if request.method != 'POST':
+        return JsonResponse({"error": "POST required"}, status=405)
+    payload = request.POST.dict()
+    q = payload.get('query') or payload.get('q') or ''
+    res = ai_generate_and_execute(q)
+    return JsonResponse(res, status=200 if 'error' not in res else 400)
 
