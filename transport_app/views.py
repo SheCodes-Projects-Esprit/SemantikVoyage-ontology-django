@@ -155,16 +155,18 @@ def list_transports(request):
     if ONTOLOGY_AVAILABLE:
         try:
             sparql = """
-            PREFIX : <http://www.transport-ontology.org/travel#>
-            SELECT ?transport ?line ?capacity ?speed
-            WHERE {
-                ?transport a/rdfs:subClassOf* :Transport ;
-                          :Transport_hasLineNumber ?line .
-                OPTIONAL { ?transport :Transport_hasCapacity ?capacity }
-                OPTIONAL { ?transport :Transport_hasSpeed ?speed }
-            }
-            LIMIT 50
-            """
+                    PREFIX :     <http://www.transport-ontology.org/travel#>
+                    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+                    SELECT ?transport ?line ?capacity ?speed
+                    WHERE {
+                        ?transport a/rdfs:subClassOf* :Transport ;
+                                :Transport_hasLineNumber ?line .
+                        OPTIONAL { ?transport :Transport_hasCapacity ?capacity }
+                        OPTIONAL { ?transport :Transport_hasSpeed ?speed }
+                    }
+                    LIMIT 50
+                    """
             result = sparql_query(sparql)
             ontology_transports = result.get('results', {}).get('bindings', [])
         except Exception as e:
