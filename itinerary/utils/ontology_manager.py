@@ -22,6 +22,18 @@ except AttributeError as e:
 
 NS = "http://www.transport-ontology.org/travel#"
 
+# ----------------------------------------------------------------------
+# RDFLIB SETUP (optional; falls back to raw SPARQL if unavailable)
+# ----------------------------------------------------------------------
+USE_RDFLIB = True
+try:
+    from rdflib import Namespace, URIRef, Literal
+    from rdflib.namespace import RDF, RDFS, XSD
+    from .rdflib_store import get_graph, get_named_graph
+    TR = Namespace(NS)
+except Exception as _rdflib_err:
+    USE_RDFLIB = False
+
 
 
 def _run_sparql(query, expect_json=True, timeout=10, all_graphs=False):
@@ -35,7 +47,8 @@ def _run_sparql(query, expect_json=True, timeout=10, all_graphs=False):
         try:
             headers = {'Accept': 'application/sparql-results+json'}
             # Use HTTP GET directly without default-graph-uri to search ALL graphs
-            resp = requests.get(FUSEKI_QUERY_URL, params={'query': query}, headers=headers, timeout=timeout)
+            # unionDefaultGraph=true makes Fuseki expose the union of all named graphs as the default graph
+            resp = requests.get(FUSEKI_QUERY_URL, params={'query': query, 'unionDefaultGraph': 'true'}, headers=headers, timeout=timeout)
             resp.raise_for_status()
             try:
                 return resp.json()
@@ -62,7 +75,7 @@ def _run_sparql(query, expect_json=True, timeout=10, all_graphs=False):
     # HTTP fallback (mimic Fuseki UI) - also without default-graph-uri
     try:
         headers = {'Accept': 'application/sparql-results+json'}
-        resp = requests.get(FUSEKI_QUERY_URL, params={'query': query}, headers=headers, timeout=timeout)
+        resp = requests.get(FUSEKI_QUERY_URL, params={'query': query, 'unionDefaultGraph': 'true'}, headers=headers, timeout=timeout)
         resp.raise_for_status()
         try:
             return resp.json()
@@ -74,7 +87,8 @@ def _run_sparql(query, expect_json=True, timeout=10, all_graphs=False):
         # Try encoded fallback
         try:
             qs = urlencode({'query': query})
-            resp2 = requests.get(f"{FUSEKI_QUERY_URL}?{qs}", headers=headers, timeout=timeout)
+            # Keep unionDefaultGraph for encoded fallback
+            resp2 = requests.get(f"{FUSEKI_QUERY_URL}?unionDefaultGraph=true&{qs}", headers=headers, timeout=timeout)
             resp2.raise_for_status()
             return resp2.json()
         except Exception as e2:
@@ -149,6 +163,8 @@ def escape_sparql_string(value):
 # ----------------------------------------------------------------------
 def create_itinerary(data, itinerary_type):
     """Create a new itinerary in RDF store using :I-*-NNN URIs."""
+    if USE_RDFLIB:
+        return _create_itinerary_rdflib(data, itinerary_type)
     # Set defaults
     data.setdefault('overall_status', 'Planned')
     data.setdefault('total_cost_estimate', 0.0)
@@ -277,7 +293,7 @@ def create_itinerary(data, itinerary_type):
 # ----------------------------------------------------------------------
 # READ - Pure RDF (use :I-*-NNN URI pattern)
 # ----------------------------------------------------------------------
-def get_itinerary(itinerary_id):
+def get_itinerary(itinerary_id, subject_uri=None):
     """
     Robust retrieval: try normalized ids and multiple URI candidates (prefixed and absolute),
     use wrapper _run_sparql to handle sparql_query and HTTP fallback.
@@ -295,9 +311,21 @@ def get_itinerary(itinerary_id):
     else:
         possible_ids = [normalize_itinerary_id(itinerary_id)]
 
-    for full_id in possible_ids:
+    # If a subject_uri was provided, try it first
+    if subject_uri:
+        node_list = [f"<{subject_uri}>"]
+        id_candidates = [itinerary_id]
+    else:
+        node_list = None
+        id_candidates = possible_ids
+
+    if USE_RDFLIB:
+        found = _get_itinerary_rdflib(itinerary_id, subject_uri)
+        if found:
+            return found
+    for full_id in id_candidates:
         print(f"🔍 Searching for RDF: {full_id}")
-        candidates = _uri_candidates_for(full_id)
+        candidates = node_list or _uri_candidates_for(full_id)
 
         for node in candidates:
             # Build SELECT using the node (node is either prefixed like :I-B-014 or angle <...>)
@@ -347,11 +375,13 @@ def get_itinerary(itinerary_id):
 # ----------------------------------------------------------------------
 # UPDATE - Pure RDF (use :I-*-NNN URI pattern)
 # ----------------------------------------------------------------------
-def update_itinerary(itinerary_id, new_data):
+def update_itinerary(itinerary_id, new_data, subject_uri=None):
     """
     Update: fetch existing; merge; delete triples for all URI candidates; recreate under preferred :I-*-NNN URI.
     """
-    existing = get_itinerary(itinerary_id)
+    if USE_RDFLIB:
+        return _update_itinerary_rdflib(itinerary_id, new_data, subject_uri)
+    existing = get_itinerary(itinerary_id, subject_uri=subject_uri)
     if not existing:
         print(f"⚠️ No existing RDF found for {itinerary_id}, creating new one.")
         return create_itinerary(new_data, new_data.get("type", "Business"))
@@ -365,7 +395,10 @@ def update_itinerary(itinerary_id, new_data):
 
     full_id = existing.get('itineraryID', itinerary_id)
     # Delete triples for all possible URI candidates to avoid stale duplicates
-    for node in _uri_candidates_for(full_id):
+    nodes_to_delete = list(_uri_candidates_for(full_id))
+    if subject_uri:
+        nodes_to_delete.insert(0, f"<{subject_uri}>")
+    for node in nodes_to_delete:
         delete_sparql = f"""
         PREFIX : <{NS}>
         DELETE WHERE {{ {node} ?p ?o }}
@@ -394,12 +427,14 @@ def update_itinerary(itinerary_id, new_data):
 # ----------------------------------------------------------------------
 # DELETE - Pure RDF (use :I-*-NNN URI pattern)
 # ----------------------------------------------------------------------
-def delete_itinerary(itinerary_id):
+def delete_itinerary(itinerary_id, subject_uri=None):
     """
     Delete resource: attempt to resolve full_id, then delete triples for all URI candidates and references.
     """
+    if USE_RDFLIB:
+        return _delete_itinerary_rdflib(itinerary_id, subject_uri)
     original_id = str(itinerary_id).strip()
-    existing = get_itinerary(original_id)
+    existing = get_itinerary(original_id, subject_uri=subject_uri)
     if existing:
         full_id = existing.get('itineraryID', original_id)
     else:
@@ -409,7 +444,10 @@ def delete_itinerary(itinerary_id):
     print(f"\n🧹 Deleting itinerary: {original_id} (normalized: {full_id})")
 
     success = True
-    for node in _uri_candidates_for(full_id):
+    nodes_to_delete = list(_uri_candidates_for(full_id))
+    if subject_uri:
+        nodes_to_delete.insert(0, f"<{subject_uri}>")
+    for node in nodes_to_delete:
         try:
             delete_subject = f"""
             PREFIX : <{NS}>
@@ -467,6 +505,8 @@ def list_itineraries(filters=None):
     # Strategy: Search in ALL graphs (default + configured graph) to find ALL itineraries
     # This combines results from both the ontology file (default graph) and newly created ones (named graph)
     
+    # IMPORTANT: Use the legacy robust Fuseki queries that search across ALL graphs.
+    # This matches prior behavior and ensures we don't miss items stored outside the default graph.
     all_bindings = []
     seen_subjects = set()  # Track by subject URI to avoid duplicates across queries
     
@@ -562,6 +602,40 @@ def list_itineraries(filters=None):
     except Exception as e:
         print(f"⚠️ Error setting up graph query: {e}")
     
+    # Query 3: Scan across ALL named graphs using GRAPH ?g { ... }
+    query3 = f"""
+    PREFIX : <{NS}>
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+    SELECT DISTINCT ?g ?s ?id ?status ?cost ?duration ?type WHERE {{
+      GRAPH ?g {{
+        {{ ?s rdf:type/rdfs:subClassOf* :Itinerary . OPTIONAL {{ ?s :itineraryID ?id }} }}
+        UNION
+        {{ ?s :itineraryID ?id . OPTIONAL {{ ?s rdf:type/rdfs:subClassOf* :Itinerary }} }}
+        OPTIONAL {{ ?s rdf:type ?type }}
+        OPTIONAL {{ ?s :overallStatus ?status }}
+        OPTIONAL {{ ?s :totalCostEstimate ?cost }}
+        OPTIONAL {{ ?s :totalDurationDays ?duration }}
+      }}
+    }}
+    ORDER BY ?id
+    LIMIT 500
+    """
+    print("🔍 Query 3: Scanning across all named graphs with GRAPH ?g {...} ...")
+    try:
+        result3 = _run_sparql(query3, all_graphs=True)
+        if isinstance(result3, dict):
+            bindings3 = result3.get('results', {}).get('bindings', []) or []
+            print(f"✅ Query 3 returned {len(bindings3)} bindings")
+            for b in bindings3:
+                s_uri = b.get('s', {}).get('value', '') if isinstance(b.get('s'), dict) else str(b.get('s', ''))
+                if s_uri and s_uri not in seen_subjects:
+                    all_bindings.append(b)
+                    seen_subjects.add(s_uri)
+    except Exception as e:
+        print(f"❌ Query 3 failed: {e}")
+
     bindings = all_bindings
     print(f"📊 Total unique bindings after combining queries: {len(bindings)}")
 
@@ -581,30 +655,18 @@ def list_itineraries(filters=None):
         iid_obj = b.get('id', {})
         iid = iid_obj.get('value', '') if isinstance(iid_obj, dict) else str(iid_obj) if iid_obj else ''
         
-        # If no ID from property, try to extract from subject URI
+        # If no ID from property, try to extract fallback from subject URI
         if not iid:
             s_obj = b.get('s', {})
             s_uri = s_obj.get('value', '') if isinstance(s_obj, dict) else str(s_obj) if s_obj else ''
             print(f"  🔍 No ID from property, trying to extract from URI: {s_uri}")
-            # Try to extract ID from URI (e.g., .../travel#I-B-001 or .../travel#itinerary/I-E-005)
             if s_uri:
-                if '#' in s_uri:
-                    local_part = s_uri.split('#')[-1]
-                    # Handle cases like "itinerary/I-E-005" - extract just the ID part
-                    if '/' in local_part:
-                        # Extract last part after slash (e.g., "I-E-005" from "itinerary/I-E-005")
-                        potential_id = local_part.split('/')[-1]
-                        print(f"  🔍 Extracted potential ID from path: {potential_id}")
-                        if potential_id.startswith(('I-B-', 'I-L-', 'I-E-')):
-                            iid = potential_id
-                    elif local_part.startswith(('I-B-', 'I-L-', 'I-E-')):
-                        iid = local_part
-                    elif local_part.startswith('I-'):
-                        iid = local_part
-                elif '/' in s_uri:
-                    local_part = s_uri.split('/')[-1]
-                    if local_part.startswith(('I-B-', 'I-L-', 'I-E-')):
-                        iid = local_part
+                local_part = s_uri.split('#')[-1] if '#' in s_uri else s_uri.split('/')[-1]
+                if '/' in local_part:
+                    local_part = local_part.split('/')[-1]
+                # Prefer canonical patterns but accept any non-empty local part as fallback
+                if local_part:
+                    iid = local_part
         
         if not iid:
             print(f"⚠️ Skipping entry {idx + 1} with empty id. Binding: {b}")
@@ -643,9 +705,21 @@ def list_itineraries(filters=None):
             else:
                 type_name = "Unknown"
 
+        # Heuristic fallback for AI-created subjects without rdf:type or canonical ID
+        if type_name == "Unknown":
+            lid = iid.lower()
+            if "business" in lid or "b_trip" in lid or "btrip" in lid:
+                type_name = "Business"
+            elif "leisure" in lid or "l_trip" in lid or "ltrip" in lid:
+                type_name = "Leisure"
+            elif "educational" in lid or "e_trip" in lid or "etrip" in lid or "edu" in lid:
+                type_name = "Educational"
+
         # Extract status
         status_obj = b.get('status', {})
         status = status_obj.get('value', 'Unknown') if isinstance(status_obj, dict) else str(status_obj) if status_obj else 'Unknown'
+        if not status or status == 'Unknown':
+            status = 'Planned'
 
         # Extract cost - handle typed values
         cost_obj = b.get('cost', {})
@@ -669,16 +743,29 @@ def list_itineraries(filters=None):
             except (ValueError, TypeError):
                 duration_str = str(dur_val) if dur_val else "1"
 
+        # Full subject URI (if present)
+        s_obj2 = b.get('s', {})
+        subject_uri = s_obj2.get('value', '') if isinstance(s_obj2, dict) else str(s_obj2) if s_obj2 else ''
+
         row = {
             "id": iid,
             "status": status,
             "cost": cost_str,
             "duration": duration_str,
             "type": type_name,
+            "subject": subject_uri,
         }
 
         # Apply filters
         if filters:
+            # Filter by a CSV list of IDs
+            if filters.get('id_in'):
+                try:
+                    allowed = {i.strip() for i in str(filters['id_in']).split(',') if i.strip()}
+                    if row['id'] not in allowed:
+                        continue
+                except Exception:
+                    pass
             if filters.get('type') and filters['type'].strip().title() != row['type']:
                 continue
             if filters.get('status') and filters['status'].strip() != row['status']:
@@ -706,4 +793,320 @@ def list_itineraries(filters=None):
     print(f"   IDs: {[r['id'] for r in rows[:10]]}{'...' if len(rows) > 10 else ''}")
     if len(rows) == 0:
         print("⚠️ WARNING: No rows created! Check the bindings processing above.")
+    return rows
+
+
+# ======================================================================
+# RDFLIB IMPLEMENTATION
+# ======================================================================
+
+def _full_id_from_input(itinerary_type: str, itinerary_id_value):
+    base_id = str(itinerary_id_value or "0").strip()
+    prefix = {'Business': 'I-B-', 'Leisure': 'I-L-', 'Educational': 'I-E-'}[itinerary_type]
+    if base_id.startswith(('I-B-', 'I-L-', 'I-E-')):
+        return normalize_itinerary_id(base_id)
+    try:
+        normalized_base = f"{int(base_id):03d}"
+    except (ValueError, TypeError):
+        normalized_base = "000"
+    return f"{prefix}{normalized_base}"
+
+
+def _subject_candidates(full_id: str, subject_uri: str = None):
+    if subject_uri:
+        return [URIRef(subject_uri)]
+    return [
+        URIRef(f"{NS}{full_id}"),
+        URIRef(f"{NS}itinerary/{full_id}")
+    ]
+
+
+def _create_itinerary_rdflib(data, itinerary_type):
+    data.setdefault('overall_status', 'Planned')
+    data.setdefault('total_cost_estimate', 0.0)
+    data.setdefault('total_duration_days', 1)
+
+    full_id = _full_id_from_input(itinerary_type, data.get('itinerary_id'))
+    subj = URIRef(f"{NS}{full_id}")
+
+    graph = get_graph()
+    ctx = get_named_graph(graph)
+
+    # Type
+    ctx.add((subj, RDF.type, TR[f"{itinerary_type}Trip"]))
+    # Base properties
+    ctx.add((subj, TR.itineraryID, Literal(full_id)))
+    ctx.add((subj, TR.overallStatus, Literal(str(data['overall_status']))))
+    try:
+        ctx.add((subj, TR.totalCostEstimate, Literal(float(data['total_cost_estimate']), datatype=XSD.decimal)))
+    except Exception:
+        ctx.add((subj, TR.totalCostEstimate, Literal(0.0, datatype=XSD.decimal)))
+    try:
+        ctx.add((subj, TR.totalDurationDays, Literal(int(data['total_duration_days']), datatype=XSD.integer)))
+    except Exception:
+        ctx.add((subj, TR.totalDurationDays, Literal(1, datatype=XSD.integer)))
+
+    if itinerary_type == 'Business':
+        if data.get('client_project_name'):
+            ctx.add((subj, TR.clientProjectName, Literal(str(data['client_project_name']))))
+        if data.get('expense_limit') is not None:
+            try:
+                ctx.add((subj, TR.expenseLimit, Literal(float(data['expense_limit']), datatype=XSD.decimal)))
+            except Exception:
+                ctx.add((subj, TR.expenseLimit, Literal(0.0, datatype=XSD.decimal)))
+        if data.get('purpose_code'):
+            ctx.add((subj, TR.purposeCode, Literal(str(data['purpose_code']))))
+        ctx.add((subj, TR.approvalRequired, Literal(bool(data.get('approval_required', False)), datatype=XSD.boolean)))
+
+    elif itinerary_type == 'Leisure':
+        if data.get('activity_type'):
+            ctx.add((subj, TR.activityType, Literal(str(data['activity_type']))))
+        if data.get('accommodation'):
+            ctx.add((subj, TR.accommodation, Literal(str(data['accommodation']))))
+        if data.get('budget_per_day') is not None:
+            try:
+                ctx.add((subj, TR.budgetPerDay, Literal(float(data['budget_per_day']), datatype=XSD.decimal)))
+            except Exception:
+                ctx.add((subj, TR.budgetPerDay, Literal(0.0, datatype=XSD.decimal)))
+        if data.get('group_size') is not None:
+            try:
+                ctx.add((subj, TR.groupSize, Literal(int(data['group_size']), datatype=XSD.integer)))
+            except Exception:
+                ctx.add((subj, TR.groupSize, Literal(1, datatype=XSD.integer)))
+
+    elif itinerary_type == 'Educational':
+        if data.get('institution'):
+            ctx.add((subj, TR.institution, Literal(str(data['institution']))))
+        if data.get('course_reference'):
+            ctx.add((subj, TR.courseReference, Literal(str(data['course_reference']))))
+        if data.get('credit_hours') is not None:
+            try:
+                ctx.add((subj, TR.creditHours, Literal(int(data['credit_hours']), datatype=XSD.integer)))
+            except Exception:
+                ctx.add((subj, TR.creditHours, Literal(0, datatype=XSD.integer)))
+        if data.get('required_documentation'):
+            ctx.add((subj, TR.requiredDocumentation, Literal(str(data['required_documentation']))))
+
+    # Simple verification (ASK)
+    ask = f"""
+    PREFIX : <{NS}>
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    ASK WHERE {{ <{NS}{full_id}> rdf:type :{itinerary_type}Trip }}
+    """
+    res = graph.query(ask)
+    try:
+        if bool(list(res)[0]):
+            return full_id
+    except Exception:
+        pass
+    return full_id
+
+
+def _get_itinerary_rdflib(itinerary_id, subject_uri=None):
+    itinerary_id = str(itinerary_id).strip()
+    if not itinerary_id.startswith("I-"):
+        normalized = normalize_itinerary_id(itinerary_id)
+        id_candidates = [f"I-B-{normalized}", f"I-L-{normalized}", f"I-E-{normalized}"]
+    else:
+        id_candidates = [normalize_itinerary_id(itinerary_id)]
+
+    graph = get_graph()
+    ctx = get_named_graph(graph)
+
+    for fid in id_candidates:
+        for subj in _subject_candidates(fid, subject_uri):
+            # Collect triples for subject
+            data = {}
+            itype = 'Business'
+            for p, o in ctx.predicate_objects(subject=subj):
+                p_local = str(p).split('#')[-1] if '#' in str(p) else str(p).split('/')[-1]
+                if p == RDF.type:
+                    t_val = str(o)
+                    if 'BusinessTrip' in t_val:
+                        itype = 'Business'
+                    elif 'LeisureTrip' in t_val:
+                        itype = 'Leisure'
+                    elif 'EducationalTrip' in t_val:
+                        itype = 'Educational'
+                else:
+                    data[p_local] = str(o)
+            if data:
+                data['type'] = itype
+                data['itineraryID'] = data.get('itineraryID', fid)
+                return data
+    return None
+
+
+def _update_itinerary_rdflib(itinerary_id, new_data, subject_uri=None):
+    existing = _get_itinerary_rdflib(itinerary_id, subject_uri)
+    if not existing:
+        return _create_itinerary_rdflib(new_data, new_data.get("type", "Business"))
+
+    full_id = existing.get('itineraryID', str(itinerary_id))
+    graph = get_graph()
+    ctx = get_named_graph(graph)
+
+    # Remove all triples for candidate subjects and inbound references
+    for subj in _subject_candidates(full_id, subject_uri):
+        to_remove = list(ctx.triples((subj, None, None)))
+        for t in to_remove:
+            ctx.remove(t)
+        inbound = list(ctx.triples((None, None, subj)))
+        for t in inbound:
+            ctx.remove(t)
+
+    merged = existing.copy()
+    merged.update(new_data)
+    merged.setdefault("type", "Business")
+    merged["itinerary_id"] = full_id
+    return _create_itinerary_rdflib(merged, merged["type"])
+
+
+def _delete_itinerary_rdflib(itinerary_id, subject_uri=None):
+    original_id = str(itinerary_id).strip()
+    existing = _get_itinerary_rdflib(original_id, subject_uri)
+    if existing:
+        full_id = existing.get('itineraryID', original_id)
+    else:
+        normalized = normalize_itinerary_id(original_id)
+        full_id = f"I-B-{normalized}" if not original_id.startswith("I-") else normalized
+
+    graph = get_graph()
+    ctx = get_named_graph(graph)
+    success = True
+    for subj in _subject_candidates(full_id, subject_uri):
+        try:
+            for t in list(ctx.triples((subj, None, None))):
+                ctx.remove(t)
+        except Exception:
+            success = False
+        try:
+            for t in list(ctx.triples((None, None, subj))):
+                ctx.remove(t)
+        except Exception:
+            success = False
+
+    # Verify deletion
+    ask = f"""
+    PREFIX : <{NS}>
+    ASK WHERE {{ <{NS}{full_id}> ?p ?o }}
+    """
+    res = graph.query(ask)
+    try:
+        if bool(list(res)[0]):
+            return False
+    except Exception:
+        pass
+    return success
+
+
+def _list_itineraries_rdflib(filters=None):
+    graph = get_graph()
+    query = f"""
+    PREFIX : <{NS}>
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    SELECT DISTINCT ?s ?id ?status ?cost ?duration ?type WHERE {{
+      {{ ?s rdf:type/rdfs:subClassOf* :Itinerary . OPTIONAL {{ ?s :itineraryID ?id }} }}
+      UNION
+      {{ ?s :itineraryID ?id . OPTIONAL {{ ?s rdf:type/rdfs:subClassOf* :Itinerary }} }}
+      OPTIONAL {{ ?s rdf:type ?type }}
+      OPTIONAL {{ ?s :overallStatus ?status }}
+      OPTIONAL {{ ?s :totalCostEstimate ?cost }}
+      OPTIONAL {{ ?s :totalDurationDays ?duration }}
+    }}
+    ORDER BY ?id
+    LIMIT 500
+    """
+    rows = []
+    seen_ids = set()
+    for b in graph.query(query):
+        # b is a tuple aligned with SELECT vars
+        s_uri = str(b[0]) if b[0] is not None else ""
+        iid = str(b[1]) if b[1] is not None else ""
+        status = str(b[2]) if b[2] is not None else "Unknown"
+        cost_val = b[3]
+        duration_val = b[4]
+        type_value = str(b[5]) if b[5] is not None else ""
+
+        if not iid and s_uri:
+            local_part = s_uri.split('#')[-1] if '#' in s_uri else s_uri.split('/')[-1]
+            if '/' in local_part:
+                potential = local_part.split('/')[-1]
+                if potential.startswith(('I-B-', 'I-L-', 'I-E-')):
+                    iid = potential
+            elif local_part.startswith(('I-B-', 'I-L-', 'I-E-')) or local_part.startswith('I-'):
+                iid = local_part
+        if not iid:
+            continue
+        if iid in seen_ids:
+            continue
+        seen_ids.add(iid)
+
+        if type_value:
+            if 'BusinessTrip' in type_value or 'Business' in type_value:
+                type_name = 'Business'
+            elif 'LeisureTrip' in type_value or 'Leisure' in type_value:
+                type_name = 'Leisure'
+            elif 'EducationalTrip' in type_value or 'Educational' in type_value:
+                type_name = 'Educational'
+            else:
+                type_name = 'Unknown'
+        else:
+            uid = iid.upper()
+            if uid.startswith('I-B-'):
+                type_name = 'Business'
+            elif uid.startswith('I-L-'):
+                type_name = 'Leisure'
+            elif uid.startswith('I-E-'):
+                type_name = 'Educational'
+            else:
+                type_name = 'Unknown'
+
+        if cost_val is None or str(cost_val) == '':
+            cost_str = '0.00'
+        else:
+            try:
+                cost_str = f"{float(cost_val):.2f}"
+            except Exception:
+                cost_str = str(cost_val)
+
+        if duration_val is None or str(duration_val) == '':
+            duration_str = '1'
+        else:
+            try:
+                duration_str = str(int(float(duration_val)))
+            except Exception:
+                duration_str = str(duration_val)
+
+        row = {
+            "id": iid,
+            "status": status,
+            "cost": cost_str,
+            "duration": duration_str,
+            "type": type_name,
+            "subject": s_uri,
+        }
+
+        if filters:
+            if filters.get('type') and filters['type'].strip().title() != row['type']:
+                continue
+            if filters.get('status') and filters['status'].strip() != row['status']:
+                continue
+            if filters.get('cost_lt'):
+                try:
+                    if float(row['cost']) >= float(filters['cost_lt']):
+                        continue
+                except Exception:
+                    pass
+            if filters.get('cost_gt'):
+                try:
+                    if float(row['cost']) <= float(filters['cost_gt']):
+                        continue
+                except Exception:
+                    pass
+
+        rows.append(row)
+
+    rows.sort(key=lambda x: x["id"])
     return rows

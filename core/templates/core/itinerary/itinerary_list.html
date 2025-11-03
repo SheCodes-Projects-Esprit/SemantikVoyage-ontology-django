@@ -46,6 +46,28 @@
       </div>
     {% endif %}
 
+    <!-- AI Query Console -->
+    <div style="margin-bottom: 2rem; padding: 1rem; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-lg);">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+        <h3 style="margin: 0; font-weight: 800; color: var(--text-primary); font-size: 18px;">🤖 AI Query</h3>
+        <div>
+          <button id="aiRunBtn" class="cta-hero" type="button" style="padding: 0.6rem 1.2rem; font-size: 13px;">Run</button>
+        </div>
+      </div>
+      <p style="margin: 0 0 0.5rem 0; color: var(--text-secondary); font-size: 13px;">Ask in natural language (FR/EN). Examples: "List business trips under 1000", "Create leisure trip ..."</p>
+      <!-- Suggested quick queries -->
+      <div id="aiSuggestions" style="display: flex; flex-wrap: wrap; gap: .5rem; margin: .25rem 0 0.75rem 0;">
+        <button type="button" class="ai-suggest" data-q="List business trips under 1000" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">List business < 1000</button>
+        <button type="button" class="ai-suggest" data-q="List leisure trips planned" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">Leisure planned</button>
+        <button type="button" class="ai-suggest" data-q="Create leisure trip with budget per day 120 group size 2 for 3 days" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">Create leisure sample</button>
+        <button type="button" class="ai-suggest" data-q="Update itinerary I-B-002 status Completed" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">Set I-B-002 Completed</button>
+        <button type="button" class="ai-suggest" data-q="Delete itinerary I-L-003" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">Delete I-L-003</button>
+        <button type="button" class="ai-suggest" data-q="Show itineraries with duration over 5 days" style="padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer;">Duration > 5</button>
+      </div>
+      <textarea id="aiQueryInput" rows="2" placeholder="Describe your query or CRUD action..." style="width: 100%; padding: 0.8rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); resize: vertical; background: var(--bg-muted); color: var(--text-primary);"></textarea>
+      <div id="aiResult" style="margin-top: 1rem; padding: 0.8rem 1rem; background: var(--bg-muted); border: 1px dashed var(--border); border-radius: var(--radius); color: var(--text-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; white-space: pre-wrap; max-height: 320px; overflow: auto;"></div>
+    </div>
+
     <!-- Itineraries Table -->
     {% if itineraries %}
       <div style="background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-md);">
@@ -117,19 +139,19 @@
                 </td>
                 <td style="padding: 1.4rem 2rem; text-align: center;">
                   <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
-                    <a href="{% url 'itinerary:detail' it.id %}" 
+                    <a href="{% url 'itinerary:detail' it.id %}?s={{ it.subject|urlencode }}" 
                        style="text-decoration: none; display: inline-block; padding: 0.6rem 1.2rem; background: transparent; border: 2px solid var(--primary); color: var(--primary); border-radius: var(--radius-full); font-weight: 600; font-size: 13px; transition: var(--transition);"
                        onmouseover="this.style.background='rgba(16, 185, 129, 0.1)'; this.style.transform='translateY(-2px)';"
                        onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)';">
                       👁️ View
                     </a>
-                    <a href="{% url 'itinerary:update' it.id %}" 
+                    <a href="{% url 'itinerary:update' it.id %}?s={{ it.subject|urlencode }}" 
                        style="text-decoration: none; display: inline-block; padding: 0.6rem 1.2rem; background: transparent; border: 2px solid var(--secondary); color: var(--secondary); border-radius: var(--radius-full); font-weight: 600; font-size: 13px; transition: var(--transition);"
                        onmouseover="this.style.background='rgba(6, 182, 212, 0.1)'; this.style.transform='translateY(-2px)';"
                        onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)';">
                       ✏️ Edit
                     </a>
-                    <a href="{% url 'itinerary:delete' it.id %}" 
+                    <a href="{% url 'itinerary:delete' it.id %}?s={{ it.subject|urlencode }}" 
                        style="text-decoration: none; display: inline-block; padding: 0.6rem 1.2rem; background: transparent; border: 2px solid #ef4444; color: #ef4444; border-radius: var(--radius-full); font-weight: 600; font-size: 13px; transition: var(--transition);"
                        onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='translateY(-2px)';"
                        onmouseout="this.style.background='transparent'; this.style.transform='translateY(0)';">
@@ -183,6 +205,105 @@
   </div>
   
   {% include 'core/partials/_footer.html' %}
+  <script>
+    (function() {
+      const btn = document.getElementById('aiRunBtn');
+      const input = document.getElementById('aiQueryInput');
+      const out = document.getElementById('aiResult');
+      const suggestions = document.querySelectorAll('.ai-suggest');
+
+      function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+      }
+
+      async function runQuery() {
+        const q = (input.value || '').trim();
+        if (!q) {
+          out.textContent = 'Please enter a query.';
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'Running...';
+        out.textContent = '';
+        try {
+          const csrf = getCookie('csrftoken');
+          const form = new URLSearchParams();
+          form.set('query', q);
+          const resp = await fetch('{% url "itinerary:ai_query" %}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+              'X-CSRFToken': csrf || ''
+            },
+            body: form.toString()
+          });
+          const data = await resp.json();
+          // Pretty print minimal info
+          if (data.error) {
+            out.textContent = '❌ ' + data.error + '\n\n' + (data.sparql ? ('SPARQL:\n' + data.sparql) : '');
+          } else if (data.mode === 'update') {
+            out.textContent = '✅ UPDATE executed.\n\nSPARQL:\n' + (data.sparql || '');
+            // Refresh the list to reflect CRUD changes
+            setTimeout(function() { window.location.reload(); }, 500);
+          } else if (data.mode === 'create') {
+            out.textContent = '✅ CREATED Itinerary: ' + (data.created_id || '') + '\n';
+            setTimeout(function() { window.location.reload(); }, 500);
+          } else {
+            out.textContent = '✅ SELECT executed.\n\nSPARQL:\n' + (data.sparql || '') + '\n\nResults:\n' + JSON.stringify(data.results || {}, null, 2);
+            // Try to extract IDs from results and refresh list with id_in filter
+            try {
+              const bindings = (data.results && data.results.results && data.results.results.bindings) || [];
+              const ids = [];
+              for (const b of bindings) {
+                // Prefer variable named 'id'; fallback to last segment of subject URI
+                if (b.id && b.id.value) {
+                  ids.push(b.id.value);
+                } else if (b.s && b.s.value) {
+                  const s = b.s.value;
+                  let local = s.includes('#') ? s.split('#').pop() : s.split('/').pop();
+                  if (local.includes('/')) local = local.split('/').pop();
+                  if (local.startsWith('I-')) ids.push(local);
+                }
+              }
+              if (ids.length > 0) {
+                const params = new URLSearchParams(window.location.search);
+                params.set('id_in', ids.join(','));
+                window.location.search = params.toString();
+              }
+            } catch (e) { /* ignore */ }
+          }
+        } catch (e) {
+          out.textContent = '❌ ' + (e && e.message ? e.message : 'Request failed');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Run';
+        }
+      }
+
+      if (btn) {
+        btn.addEventListener('click', runQuery);
+      }
+      if (suggestions && suggestions.length) {
+        suggestions.forEach(function(el) {
+          el.addEventListener('click', function() {
+            if (!input) return;
+            input.value = el.getAttribute('data-q') || '';
+            runQuery();
+          });
+        });
+      }
+      if (input) {
+        input.addEventListener('keydown', function(ev) {
+          if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
+            ev.preventDefault();
+            runQuery();
+          }
+        });
+      }
+    })();
+  </script>
 {% endblock %}
 
 {% block styles %}
