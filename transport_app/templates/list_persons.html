@@ -35,6 +35,34 @@
   </div>
 {% endif %}
 
+<!-- AI QUERY SECTION -->
+<section style="max-width: 1280px; margin: 2rem auto; padding: 0 2rem;">
+  <div id="filterStatus" style="display: none; background: #dbeafe; color: #1e40af; padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1rem; font-weight: 600; box-shadow: var(--shadow-sm);">
+    <span id="filterStatusText"></span>
+    <button id="clearFilterBtn" onclick="clearFilter()" style="margin-left: 1rem; padding: 0.25rem 0.75rem; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">Effacer le filtre</button>
+  </div>
+  <div style="margin-bottom: 1.5rem; padding: 1rem; background: white; border: 2px solid #e5e7eb; border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.05);">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+      <h3 style="margin: 0; font-weight: 800; color: #111827; font-size: 18px;">AI Query</h3>
+      <div>
+        <button id="aiRunBtn" class="cta-hero" type="button" style="padding: 0.6rem 1.2rem; font-size: 13px;">Run</button>
+      </div>
+    </div>
+    <div id="aiSuggestions" style="display: flex; flex-wrap: wrap; gap: .5rem; margin: .25rem 0 .75rem 0;">
+      <button type="button" class="ai-suggest" data-q="List all persons" style="padding: .3rem .7rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #f8fafc; color: #6b7280; cursor: pointer;">List persons</button>
+      <button type="button" class="ai-suggest" data-q="List all Conducteur persons" style="padding: .3rem .7rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #f8fafc; color: #6b7280; cursor: pointer;">Conducteurs only</button>
+      <button type="button" class="ai-suggest" data-q="List all Passager persons" style="padding: .3rem .7rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #f8fafc; color: #6b7280; cursor: pointer;">Passagers only</button>
+      <button type="button" class="ai-suggest" data-q="Create passager name John Doe age 30 email john@example.com" style="padding: .3rem .7rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #f8fafc; color: #6b7280; cursor: pointer;">Create passager</button>
+      <button type="button" class="ai-suggest" data-q="Create conducteur name Jane Smith age 35 license L123456" style="padding: .3rem .7rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #f8fafc; color: #6b7280; cursor: pointer;">Create conducteur</button>
+      <button type="button" class="ai-suggest" data-q="Create controleur name Bob Wilson age 28 badge B001 zone Downtown" style="padding: .3rem .7rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #f8fafc; color: #6b7280; cursor: pointer;">Create contrôleur</button>
+      <button type="button" class="ai-suggest" data-q="Update person P-0001 name to John Smith" style="padding: .3rem .7rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #f8fafc; color: #6b7280; cursor: pointer;">Update name</button>
+      <button type="button" class="ai-suggest" data-q="Delete person P-0001" style="padding: .3rem .7rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #f8fafc; color: #6b7280; cursor: pointer;">Delete example</button>
+    </div>
+    <textarea id="aiQueryInput" rows="2" placeholder="Describe your query or CRUD action..." style="width: 100%; padding: 0.8rem 1rem; border: 1px solid #e5e7eb; border-radius: 14px; resize: vertical; background: #f8fafc; color: #111827; font-family: inherit;"></textarea>
+    <div id="aiResult" style="margin-top: 1rem; padding: 0.8rem 1rem; background: #f8fafc; border: 1px dashed #e5e7eb; border-radius: 14px; color: #6b7280; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; white-space: pre-wrap; max-height: 320px; overflow: auto;"></div>
+  </div>
+</section>
+
 <!-- TABLEAU DES PERSONNES -->
 <section style="max-width: 1280px; margin: 4rem auto; padding: 0 2rem;">
   {% if persons %}
@@ -58,9 +86,12 @@
           </thead>
           <tbody>
             {% for person in persons %}
-              <tr>
+              <tr id="person-{{ person.has_id }}" {% if request.GET.created == person.has_id %}class="newly-created-ticket" style="background: #d1fae5; animation: highlightRow 2s ease-out;"{% endif %}>
                 <td class="person-id">
                   <strong>{{ person.has_id }}</strong>
+                  {% if request.GET.created == person.has_id %}
+                    <span style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: #10b981; color: white; border-radius: 4px; font-size: 11px; font-weight: 600;">NOUVEAU</span>
+                  {% endif %}
                 </td>
                 <td class="person-name">
                   <strong>{{ person.has_name }}</strong>
@@ -94,6 +125,85 @@
       <p>Aucune personne enregistrée pour le moment.</p>
       <a href="{% url 'create_person' %}" class="cta-hero">+ Créer la première personne</a>
     </div>
+  {% endif %}
+  
+  <!-- SECTION PERSONNES DE L'ONTOLOGIE -->
+  {% if ontology_available and ontology_persons %}
+  <div class="mt-6" style="margin-top: 50px;">
+    <div class="table-container">
+      <div class="table-header">
+        <h3>
+          <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zM6.5 3h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1zm-1 2h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1zm1 2h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1z"/>
+              <path d="M12.5 7h-9a.5.5 0 0 1 0-1h9a.5.5 0 0 1 0 1zm-1 2h-7a.5.5 0 0 1 0-1h7a.5.5 0 0 1 0 1zm1 2h-9a.5.5 0 0 1 0-1h9a.5.5 0 0 1 0 1z"/>
+            </svg>
+            Personnes depuis l'Ontologie
+          </span>
+        </h3>
+        <span class="badge badge-ontology" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-left: 1rem;">Fuseki</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="person-table ontology-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nom</th>
+              <th>Type</th>
+              <th>Âge</th>
+              <th>Email</th>
+              <th>Téléphone</th>
+              <th>Rôle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for person in ontology_persons %}
+            <tr>
+              <td class="person-id">
+                <strong>{% if person.id.value %}{{ person.id.value }}{% else %}—{% endif %}</strong>
+              </td>
+              <td class="person-name">
+                <strong>{% if person.name.value %}{{ person.name.value }}{% else %}—{% endif %}</strong>
+              </td>
+              <td class="person-type">
+                <span class="badge badge-{% if person.type.value %}{{ person.type.value|lower }}{% else %}person{% endif %}">
+                  {% if person.type.value %}{{ person.type.value }}{% else %}Person{% endif %}
+                </span>
+              </td>
+              <td>{% if person.age.value %}{{ person.age.value }}{% else %}—{% endif %}</td>
+              <td>{% if person.email.value %}{{ person.email.value }}{% else %}—{% endif %}</td>
+              <td>{% if person.phoneNumber.value %}{{ person.phoneNumber.value }}{% else %}—{% endif %}</td>
+              <td>{% if person.role.value %}{{ person.role.value }}{% else %}—{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" class="text-center" style="padding: 2rem; color: #94a3b8;">
+                Aucune personne trouvée dans l'ontologie.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="text-center mt-3" style="margin-top: 1rem; text-align: center;">
+      <small style="color: #64748b;">
+        <em>Données synchronisées depuis le serveur SPARQL (Fuseki)</em>
+      </small>
+    </div>
+  </div>
+  {% elif ontology_available and not persons and not ontology_persons %}
+  <div class="empty-state" style="text-align: center; padding: 5rem 2rem; background: white; border-radius: 20px; box-shadow: var(--shadow-md);">
+    <div class="empty-icon" style="width: 80px; height: 80px; margin: 0 auto 1.5rem; background: #e0e7ff; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 40px; height: 40px; color: #6366f1;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    </div>
+    <p style="font-size: 18px; color: #64748b; margin-bottom: 1.5rem;">Aucune personne trouvée dans la base de données ni dans l'ontologie.</p>
+    <a href="{% url 'create_person' %}" class="cta-hero" style="position: relative; overflow: hidden; padding: 1rem 2rem; background: linear-gradient(135deg, #10b981, #06b6d4); color: white; border-radius: 999px; font-weight: 700; box-shadow: 0 8px 24px rgba(16,185,129,.3); transition: all .2s ease; border: none; cursor: pointer; text-decoration: none; display: inline-block;">+ Créer la première personne</a>
+  </div>
   {% endif %}
 </section>
 
@@ -193,10 +303,21 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   }
 
+  .badge-person { background: linear-gradient(135deg, #64748b, #94a3b8); }
   .badge-conducteur { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
   .badge-contrôleur { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
   .badge-employéagence { background: linear-gradient(135deg, #10b981, #34d399); }
+  .badge-employeagence { background: linear-gradient(135deg, #10b981, #34d399); }
   .badge-passager { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+  
+  /* Styles pour les personnes de l'ontologie */
+  .ontology-table tbody tr {
+    background: #f8fafc;
+  }
+  
+  .ontology-table tbody tr:hover {
+    background: #f1f5f9;
+  }
 
   .actions {
     text-align: center;
@@ -300,6 +421,199 @@
     to { opacity: 1; transform: translateY(0); }
   }
 </style>
+
+<script>
+  (function(){
+    const btn = document.getElementById('aiRunBtn');
+    const input = document.getElementById('aiQueryInput');
+    const out = document.getElementById('aiResult');
+    const suggestions = document.querySelectorAll('.ai-suggest');
+
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    async function runQuery(){
+      const q = (input.value||'').trim();
+      if(!q){ out.textContent='Please enter a query.'; return; }
+      btn.disabled=true; btn.textContent='Running...'; out.textContent='';
+      try{
+        const csrf=getCookie('csrftoken');
+        const form=new URLSearchParams(); form.set('query', q);
+        const resp=await fetch('{% url "person_ai_query" %}', {
+          method:'POST', 
+          headers:{
+            'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',
+            'X-CSRFToken':csrf||''
+          }, 
+          body:form.toString()
+        });
+        const data=await resp.json();
+        if(data.error){ 
+          const errorMsg = data.error + (data.traceback ? '\n\nTraceback:\n' + data.traceback : '');
+          out.textContent='[ERREUR] '+errorMsg+'\n\n'+(data.sparql?('SPARQL:\n'+data.sparql):''); 
+          out.style.color='#dc2626';
+          console.error('[AI Query Error]', data);
+          return;
+        }
+        else if(data.mode==='update'){ 
+          out.textContent='[OK] UPDATE execute.\n\nSPARQL:\n'+(data.sparql||''); 
+          setTimeout(function(){window.location.reload();},500); 
+        }
+        else if(data.mode==='create'){ 
+          const personId = data.created_id || '';
+          const debugInfo = data.debug || '';
+          out.textContent='[OK] CREATED Person: '+personId+(debugInfo ? '\n'+debugInfo : '')+'\n\nRechargement de la page pour afficher la nouvelle personne...'; 
+          out.style.color='#10b981';
+          console.log('[AI Query] Person created:', data);
+          setTimeout(function(){
+            if(personId) {
+              const url = new URL(window.location);
+              url.searchParams.set('created', personId);
+              window.location.href = url.toString();
+            } else {
+              window.location.reload();
+            }
+          }, 1500); 
+        }
+        else if(data.mode==='filter') {
+          const filterType = data.filter_type;
+          out.style.color='#10b981';
+          // Chercher toutes les lignes du tbody (base de données et ontologie)
+          const rows = document.querySelectorAll('tbody tr');
+          let visibleCount = 0;
+          rows.forEach(function(row) {
+            const typeBadge = row.querySelector('.badge');
+            if(!typeBadge) return;
+            const rowType = typeBadge.textContent.trim().toLowerCase();
+            const filterTypeLower = filterType ? filterType.toLowerCase() : null;
+            if(!filterType || rowType === filterTypeLower) {
+              row.style.display = '';
+              visibleCount++;
+            } else {
+              row.style.display = 'none';
+            }
+          });
+          const message = filterType ? `Affichage des ${filterType} (${visibleCount} trouvé${visibleCount > 1 ? 's' : ''})` : `Affichage de toutes les personnes (${visibleCount} trouvé${visibleCount > 1 ? 's' : ''})`;
+          out.textContent = '[OK] FILTRE: '+message;
+          const filterStatus = document.getElementById('filterStatus');
+          const filterStatusText = document.getElementById('filterStatusText');
+          if(filterType) {
+            filterStatus.style.display = 'block';
+            filterStatusText.textContent = 'Filtre actif: '+filterType+' ('+visibleCount+' personne'+(visibleCount > 1 ? 's' : '')+')';
+          } else {
+            filterStatus.style.display = 'none';
+          }
+          if(visibleCount === 0) {
+            out.textContent = '[INFO] Aucune personne trouvée pour le filtre: '+(filterType || 'tous');
+            out.style.color='#f59e0b';
+          }
+        }
+        else if(data.mode==='select') {
+          out.textContent='[OK] SELECT execute.\n\nSPARQL:\n'+(data.sparql||'')+'\n\nResults:\n'+JSON.stringify(data.results||{},null,2);
+          try {
+            const bindings=(data.results && data.results.results && data.results.results.bindings)||[];
+            const ids=[];
+            for(const b of bindings){
+              if(b.id && b.id.value){ ids.push(b.id.value); }
+              else if(b.person && b.person.value){
+                const s=b.person.value;
+                let local=s.includes('#')?s.split('#').pop():s.split('/').pop();
+                if(local.includes('/')) local=local.split('/').pop();
+                if(local) {
+                  const idMatch = local.match(/person[_\w]*_?([PCEA]?[_-]?[\w\d]+)/i);
+                  if(idMatch && idMatch[1]) {
+                    ids.push(idMatch[1].replace('_', '-'));
+                  }
+                }
+              }
+            }
+            if(ids.length>0){
+              console.log('Found person IDs:', ids);
+            }
+          } catch(e) { /* ignore */ }
+        }
+      }catch(e){ 
+        out.textContent='[ERREUR] '+(e && e.message?e.message:'Request failed'); 
+      }
+      finally{ btn.disabled=false; btn.textContent='Run'; }
+    }
+
+    if(btn){ btn.addEventListener('click', runQuery); }
+    if(suggestions&&suggestions.length){ 
+      suggestions.forEach(function(el){ 
+        el.addEventListener('click', function(){ 
+          input.value=el.getAttribute('data-q')||''; 
+          runQuery(); 
+        }); 
+      }); 
+    }
+    if(input){ 
+      input.addEventListener('keydown', function(ev){ 
+        if((ev.ctrlKey||ev.metaKey)&&ev.key==='Enter'){ 
+          ev.preventDefault(); 
+          runQuery(); 
+        } 
+      }); 
+    }
+  })();
+
+  // Scroll automatiquement vers la personne créée s'il y en a une
+  {% if request.GET.created %}
+    (function(){
+      const createdId = '{{ request.GET.created }}';
+      const rowId = 'person-' + createdId;
+      const row = document.getElementById(rowId);
+      if(row) {
+        setTimeout(function(){
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          row.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.5)';
+        }, 300);
+        setTimeout(function(){
+          const url = new URL(window.location);
+          url.searchParams.delete('created');
+          window.history.replaceState({}, '', url.toString());
+          if(row) {
+            row.style.boxShadow = '';
+          }
+        }, 5000);
+      } else {
+        const rows = document.querySelectorAll('tr[id^="person-"]');
+        for(let r of rows) {
+          const idCell = r.querySelector('.person-id strong');
+          if(idCell && idCell.textContent.trim() === createdId) {
+            setTimeout(function(){
+              r.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              r.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.5)';
+            }, 300);
+            setTimeout(function(){
+              const url = new URL(window.location);
+              url.searchParams.delete('created');
+              window.history.replaceState({}, '', url.toString());
+              r.style.boxShadow = '';
+            }, 5000);
+            break;
+          }
+        }
+      }
+    })();
+  {% endif %}
+
+  // Fonction pour effacer le filtre
+  function clearFilter() {
+    const rows = document.querySelectorAll('tbody tr');
+    rows.forEach(function(row) {
+      row.style.display = '';
+    });
+    const filterStatus = document.getElementById('filterStatus');
+    filterStatus.style.display = 'none';
+    const out = document.getElementById('aiResult');
+    out.textContent = 'Filtre effacé. Affichage de toutes les personnes.';
+    out.style.color = '#10b981';
+  }
+</script>
 
 {% include 'core/partials/_footer.html' %}
 {% endblock %}

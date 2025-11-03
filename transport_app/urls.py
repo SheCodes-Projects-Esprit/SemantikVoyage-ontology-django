@@ -19,6 +19,8 @@ urlpatterns = [
     path('persons/create/', views.create_person, name='create_person'),
     path('persons/<int:pk>/update/', views.update_person, name='update_person'),
     path('persons/<int:pk>/delete/', views.delete_person, name='delete_person'),
+    # AI Query
+    path('persons/ai-query/', views.person_ai_query, name='person_ai_query'),
     
     # Ontology
     path('ontology/query/', views.ontology_query_view, name='ontology_query'),

@@ -38,30 +38,54 @@ def list_tickets(request):
     ontology_tickets = []
     if ONTOLOGY_AVAILABLE:
         try:
+            # Rechercher dans tous les graphes (pas de restriction GRAPH)
             sparql = """
             PREFIX : <http://www.transport-ontology.org/travel#>
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
             
-            SELECT ?ticket ?id ?price ?purchaseDate ?type
+            SELECT DISTINCT ?ticket ?id ?price ?purchaseDate ?type ?validityDuration ?ownerName ?validForLine
             WHERE {
-                ?ticket a/rdfs:subClassOf* :Ticket ;
-                        :hasTicketID ?id .
+                {
+                    ?ticket a/rdfs:subClassOf* :Ticket .
+                    OPTIONAL { ?ticket :hasTicketID ?id }
+                }
+                UNION
+                {
+                    ?ticket :hasTicketID ?id .
+                    OPTIONAL { ?ticket a/rdfs:subClassOf* :Ticket }
+                }
                 OPTIONAL { ?ticket :hasPrice ?price }
                 OPTIONAL { ?ticket :hasPurchaseDate ?purchaseDate }
+                OPTIONAL { ?ticket :hasValidityDuration ?validityDuration }
+                OPTIONAL { 
+                    ?ticket :ownedBy ?owner .
+                    ?owner :hasName ?ownerName .
+                }
+                OPTIONAL { 
+                    ?ticket :validFor ?transport .
+                    ?transport :Transport_hasLineNumber ?validForLine .
+                }
                 BIND(
                     IF(EXISTS { ?ticket rdf:type :TicketSimple }, "TicketSimple",
                     IF(EXISTS { ?ticket rdf:type :TicketSenior }, "TicketSenior",
-                    IF(EXISTS { ?ticket rdf:type :TicketEtudiant }, "TicketEtudiant",
+                    IF(EXISTS { ?ticket rdf:type :TicketÉtudiant }, "TicketÉtudiant",
                     IF(EXISTS { ?ticket rdf:type :AbonnementHebdomadaire }, "AbonnementHebdomadaire",
                     IF(EXISTS { ?ticket rdf:type :AbonnementMensuel }, "AbonnementMensuel", "Ticket")))))
                     AS ?type)
             }
-            LIMIT 50
+            ORDER BY ?id
+            LIMIT 100
             """
             result = sparql_query(sparql)
             ontology_tickets = result.get('results', {}).get('bindings', [])
+            print(f"[DEBUG] Tickets de l'ontologie: {len(ontology_tickets)} trouvés")
+            if ontology_tickets:
+                print(f"[DEBUG] Premier ticket: {ontology_tickets[0]}")
         except Exception as e:
+            print(f"[ERROR] Erreur lors de la récupération des tickets de l'ontologie: {e}")
+            import traceback
+            traceback.print_exc()
             messages.warning(request, f"Impossible de charger les données de l'ontologie: {e}")
 
     return render(request, 'ticket_app/list_tickets.html', {
