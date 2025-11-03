@@ -1,0 +1,58 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}AI City Suggestions{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 600px; margin: 60px auto;">
+    <h2>AI City Suggestions</h2>
+    <form id="prefs-form" method="post">
+      {% csrf_token %}
+      <div class="input-wrapper">
+        <label>City Type:</label>
+        <select name="type">
+          <option value="Capital">Capital</option>
+          <option value="Metropolitan">Metropolitan</option>
+          <option value="Touristic">Touristic</option>
+          <option value="Industrial">Industrial</option>
+        </select>
+      </div>
+      <div class="input-wrapper">
+        <label>Population:</label>
+        <input type="number" name="population" value="500000" min="0">
+      </div>
+      <div class="input-wrapper">
+        <label>Area (km²):</label>
+        <input type="number" name="area" value="100" min="0" step="0.1">
+      </div>
+      <button type="button" onclick="getSuggestions()" class="cta-btn">Get AI Suggestions</button>
+    </form>
+    <div id="suggestions" style="margin-top: 2rem;"></div>
+  </div>
+
+  <script>
+    function getSuggestions() {
+      const formData = new FormData(document.getElementById('prefs-form'));
+      fetch("{% url 'city:ai_suggest' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          document.getElementById('suggestions').innerHTML = `<p class="error">${data.error}</p>`;
+        } else {
+          let html = '<h3>Suggested City:</h3><ul>';
+          for (let k in data.suggestions) {
+            html += `<li><strong>${k}:</strong> ${data.suggestions[k]}</li>`;
+          }
+          html += '</ul>';
+          document.getElementById('suggestions').innerHTML = html;
+        }
+      });
+    }
+  </script>
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}

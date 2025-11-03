@@ -8,4 +8,5 @@ urlpatterns = [
     path('load-ontology/', views.load_ontology, name='load_ontology'),
     path('debug-fuseki/', views.debug_fuseki, name='debug_fuseki'),
     path('itinerary/', include('itinerary.urls')),
+    path('city/', include('city.urls')),
 ]

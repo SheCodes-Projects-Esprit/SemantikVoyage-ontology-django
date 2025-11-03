@@ -1,0 +1,56 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}{{ city.name }} - City Details{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 900px; margin: 60px auto;">
+    {% if messages %}
+      <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+          <p style="padding: .9rem 1.2rem; border-radius: 10px; font-weight: 600; margin: .5rem 0;
+                    {% if message.tags == 'error' %}background:#fee2e2; border:1px solid #fecaca; color:#991b1b;
+                    {% elif message.tags == 'warning' %}background:#fef3c7; border:1px solid #fde68a; color:#92400e;
+                    {% else %}background:#ecfeff; border:1px solid #a5f3fc; color:#155e75;{% endif %}">
+            {{ message }}
+          </p>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <h2>{{ city.name }} <small style="color: var(--text-muted);">{{ city.type }} City</small></h2>
+
+    <div class="itinerary-card" style="background: var(--bg-secondary); padding: 2rem; border-radius: var(--radius-lg); border: 2px solid var(--border);">
+      <h3>Core Data</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+        <div><strong>Status:</strong> {{ city.overall_status }}</div>
+        <div><strong>Population:</strong> {{ city.population|default:"0" }}</div>
+        <div><strong>Area:</strong> {{ city.area_km2|default:"0" }} km²</div>
+      </div>
+    </div>
+
+    <div class="itinerary-card" style="margin-top: 2rem;">
+      <h3>{{ city.type }} Details</h3>
+      {% if city.type == "Capital" %}
+        <div><strong>Government Seat:</strong> {{ city.government_seat|yesno:"Yes,No" }}</div>
+        <div><strong>Ministries:</strong> {{ city.ministries }}</div>
+      {% elif city.type == "Metropolitan" %}
+        <div><strong>Districts:</strong> {{ city.districts }}</div>
+        <div><strong>Avg. Commute:</strong> {{ city.commute_minutes }} min</div>
+      {% elif city.type == "Touristic" %}
+        <div><strong>Annual Visitors:</strong> {{ city.annual_visitors }}</div>
+        <div><strong>Hotels:</strong> {{ city.hotels }}</div>
+      {% elif city.type == "Industrial" %}
+        <div><strong>Factories:</strong> {{ city.factories }}</div>
+        <div><strong>Pollution Index:</strong> {{ city.pollution_index }}/100</div>
+      {% endif %}
+    </div>
+
+    <div style="margin-top: 3rem; display: flex; gap: 1rem;">
+      <a href="{% url 'city:update' city.name %}" class="cta-hero">Edit</a>
+      <a href="{% url 'city:delete' city.name %}" class="cta-ghost">Delete</a>
+      <a href="{% url 'city:list' %}" class="cta-ghost">Back to List</a>
+    </div>
+  </div>
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}
