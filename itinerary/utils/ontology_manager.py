@@ -277,7 +277,7 @@ def create_itinerary(data, itinerary_type):
 # ----------------------------------------------------------------------
 # READ - Pure RDF (use :I-*-NNN URI pattern)
 # ----------------------------------------------------------------------
-def get_itinerary(itinerary_id):
+def get_itinerary(itinerary_id, subject_uri=None):
     """
     Robust retrieval: try normalized ids and multiple URI candidates (prefixed and absolute),
     use wrapper _run_sparql to handle sparql_query and HTTP fallback.
@@ -295,9 +295,17 @@ def get_itinerary(itinerary_id):
     else:
         possible_ids = [normalize_itinerary_id(itinerary_id)]
 
-    for full_id in possible_ids:
+    # If a subject_uri was provided, try it first
+    if subject_uri:
+        node_list = [f"<{subject_uri}>"]
+        id_candidates = [itinerary_id]
+    else:
+        node_list = None
+        id_candidates = possible_ids
+
+    for full_id in id_candidates:
         print(f"🔍 Searching for RDF: {full_id}")
-        candidates = _uri_candidates_for(full_id)
+        candidates = node_list or _uri_candidates_for(full_id)
 
         for node in candidates:
             # Build SELECT using the node (node is either prefixed like :I-B-014 or angle <...>)
@@ -347,11 +355,11 @@ def get_itinerary(itinerary_id):
 # ----------------------------------------------------------------------
 # UPDATE - Pure RDF (use :I-*-NNN URI pattern)
 # ----------------------------------------------------------------------
-def update_itinerary(itinerary_id, new_data):
+def update_itinerary(itinerary_id, new_data, subject_uri=None):
     """
     Update: fetch existing; merge; delete triples for all URI candidates; recreate under preferred :I-*-NNN URI.
     """
-    existing = get_itinerary(itinerary_id)
+    existing = get_itinerary(itinerary_id, subject_uri=subject_uri)
     if not existing:
         print(f"⚠️ No existing RDF found for {itinerary_id}, creating new one.")
         return create_itinerary(new_data, new_data.get("type", "Business"))
@@ -365,7 +373,10 @@ def update_itinerary(itinerary_id, new_data):
 
     full_id = existing.get('itineraryID', itinerary_id)
     # Delete triples for all possible URI candidates to avoid stale duplicates
-    for node in _uri_candidates_for(full_id):
+    nodes_to_delete = list(_uri_candidates_for(full_id))
+    if subject_uri:
+        nodes_to_delete.insert(0, f"<{subject_uri}>")
+    for node in nodes_to_delete:
         delete_sparql = f"""
         PREFIX : <{NS}>
         DELETE WHERE {{ {node} ?p ?o }}
@@ -394,12 +405,12 @@ def update_itinerary(itinerary_id, new_data):
 # ----------------------------------------------------------------------
 # DELETE - Pure RDF (use :I-*-NNN URI pattern)
 # ----------------------------------------------------------------------
-def delete_itinerary(itinerary_id):
+def delete_itinerary(itinerary_id, subject_uri=None):
     """
     Delete resource: attempt to resolve full_id, then delete triples for all URI candidates and references.
     """
     original_id = str(itinerary_id).strip()
-    existing = get_itinerary(original_id)
+    existing = get_itinerary(original_id, subject_uri=subject_uri)
     if existing:
         full_id = existing.get('itineraryID', original_id)
     else:
@@ -409,7 +420,10 @@ def delete_itinerary(itinerary_id):
     print(f"\n🧹 Deleting itinerary: {original_id} (normalized: {full_id})")
 
     success = True
-    for node in _uri_candidates_for(full_id):
+    nodes_to_delete = list(_uri_candidates_for(full_id))
+    if subject_uri:
+        nodes_to_delete.insert(0, f"<{subject_uri}>")
+    for node in nodes_to_delete:
         try:
             delete_subject = f"""
             PREFIX : <{NS}>
@@ -669,12 +683,17 @@ def list_itineraries(filters=None):
             except (ValueError, TypeError):
                 duration_str = str(dur_val) if dur_val else "1"
 
+        # Full subject URI (if present)
+        s_obj2 = b.get('s', {})
+        subject_uri = s_obj2.get('value', '') if isinstance(s_obj2, dict) else str(s_obj2) if s_obj2 else ''
+
         row = {
             "id": iid,
             "status": status,
             "cost": cost_str,
             "duration": duration_str,
             "type": type_name,
+            "subject": subject_uri,
         }
 
         # Apply filters
