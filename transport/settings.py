@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'core',
     'itinerary',
     'transport_app',
+    'ticket_app',
     'city',
     'company',
 ]

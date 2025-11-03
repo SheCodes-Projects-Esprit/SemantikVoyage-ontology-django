@@ -8,6 +8,14 @@ from transport_app.models import (
     Transport, Bus, Metro, Train, Tram, City, Company,
     BusCompany, MetroCompany, Person, Conducteur, Contrôleur, EmployéAgence, Passager
 )
+try:
+    from ticket_app.models import (
+        Ticket, TicketSimple, TicketSenior, TicketÉtudiant,
+        AbonnementHebdomadaire, AbonnementMensuel
+    )
+    TICKET_APP_AVAILABLE = True
+except ImportError:
+    TICKET_APP_AVAILABLE = False
 
 # Namespaces
 ONTOLOGY = Namespace("http://www.transport-ontology.org/travel#")
@@ -231,8 +239,7 @@ class OntologySyncService:
         }}
         """
         from core.utils.fuseki import sparql_update
-        sparql_update(delete_query)
-    
+        sparql_update(delete_query)    
     def person_to_rdf(self, person):
         """Convert Person instance to RDF"""
         # Utiliser has_id pour créer un URI stable
@@ -331,6 +338,120 @@ class OntologySyncService:
         PREFIX : <{ONTOLOGY}>
         DELETE WHERE {{
             <{person_uri}> ?p ?o .
+        }}
+        """
+        from core.utils.fuseki import sparql_update
+        sparql_update(delete_query)
+    
+    def ticket_to_rdf(self, ticket):
+        """Convert Ticket instance to RDF"""
+        if not TICKET_APP_AVAILABLE:
+            raise Exception("Ticket app not available")
+        
+        # Utiliser has_ticket_id pour créer un URI stable
+        ticket_id = ticket.has_ticket_id.replace('-', '_').replace(' ', '_')
+        ticket_uri = URIRef(f"{ONTOLOGY}ticket_{ticket_id}")
+        
+        # Déterminer le type de ticket
+        if isinstance(ticket, TicketSimple):
+            ticket_type = ONTOLOGY.TicketSimple
+        elif isinstance(ticket, TicketSenior):
+            ticket_type = ONTOLOGY.TicketSenior
+        elif isinstance(ticket, TicketÉtudiant):
+            ticket_type = ONTOLOGY.TicketÉtudiant
+        elif isinstance(ticket, AbonnementHebdomadaire):
+            ticket_type = ONTOLOGY.AbonnementHebdomadaire
+        elif isinstance(ticket, AbonnementMensuel):
+            ticket_type = ONTOLOGY.AbonnementMensuel
+        else:
+            ticket_type = ONTOLOGY.Ticket
+        
+        # Ajouter les triples de base
+        self.graph.add((ticket_uri, RDF.type, ticket_type))
+        self.graph.add((ticket_uri, ONTOLOGY.hasTicketID, Literal(ticket.has_ticket_id)))
+        
+        if ticket.has_price:
+            self.graph.add((ticket_uri, ONTOLOGY.hasPrice, Literal(ticket.has_price, datatype=XSD.float)))
+        
+        if ticket.has_validity_duration:
+            self.graph.add((ticket_uri, ONTOLOGY.hasValidityDuration, Literal(ticket.has_validity_duration)))
+        
+        if ticket.has_purchase_date:
+            self.graph.add((ticket_uri, ONTOLOGY.hasPurchaseDate, Literal(ticket.has_purchase_date, datatype=XSD.date)))
+        
+        if ticket.has_expiration_date:
+            self.graph.add((ticket_uri, ONTOLOGY.hasExpirationDate, Literal(ticket.has_expiration_date, datatype=XSD.date)))
+        
+        if ticket.is_reduced_fare:
+            self.graph.add((ticket_uri, ONTOLOGY.isReducedFare, Literal(ticket.is_reduced_fare, datatype=XSD.boolean)))
+        
+        # Relations
+        if ticket.owned_by:
+            person_id = ticket.owned_by.has_id.replace('-', '_').replace(' ', '_')
+            person_uri = URIRef(f"{ONTOLOGY}person_{person_id}")
+            self.graph.add((ticket_uri, ONTOLOGY.ownedBy, person_uri))
+            # Ajouter aussi les données de la personne
+            self.person_to_rdf(ticket.owned_by)
+        
+        if ticket.valid_for:
+            transport_uri = URIRef(f"{ONTOLOGY}{ticket.valid_for.__class__.__name__}_{ticket.valid_for.transport_line_number}")
+            self.graph.add((ticket_uri, ONTOLOGY.validFor, transport_uri))
+            # Ajouter aussi les données du transport
+            self.transport_to_rdf(ticket.valid_for)
+        
+        # Propriétés spécifiques TicketSimple
+        if isinstance(ticket, TicketSimple):
+            if ticket.is_used is not None:
+                self.graph.add((ticket_uri, ONTOLOGY.isUsed, Literal(ticket.is_used, datatype=XSD.boolean)))
+        
+        # Propriétés spécifiques TicketSenior
+        elif isinstance(ticket, TicketSenior):
+            if ticket.has_age_condition:
+                self.graph.add((ticket_uri, ONTOLOGY.hasAgeCondition, Literal(ticket.has_age_condition, datatype=XSD.integer)))
+        
+        # Propriétés spécifiques TicketÉtudiant
+        elif isinstance(ticket, TicketÉtudiant):
+            if ticket.has_institution_name:
+                self.graph.add((ticket_uri, ONTOLOGY.hasInstitutionName, Literal(ticket.has_institution_name)))
+            if ticket.has_student_id:
+                self.graph.add((ticket_uri, ONTOLOGY.hasStudentID, Literal(ticket.has_student_id)))
+        
+        # Propriétés spécifiques AbonnementHebdomadaire
+        elif isinstance(ticket, AbonnementHebdomadaire):
+            if ticket.has_start_date:
+                self.graph.add((ticket_uri, ONTOLOGY.hasStartDate, Literal(ticket.has_start_date, datatype=XSD.date)))
+            if ticket.has_end_date:
+                self.graph.add((ticket_uri, ONTOLOGY.hasEndDate, Literal(ticket.has_end_date, datatype=XSD.date)))
+            if ticket.has_zone_access:
+                self.graph.add((ticket_uri, ONTOLOGY.hasZoneAccess, Literal(ticket.has_zone_access)))
+        
+        # Propriétés spécifiques AbonnementMensuel
+        elif isinstance(ticket, AbonnementMensuel):
+            if ticket.has_month:
+                self.graph.add((ticket_uri, ONTOLOGY.hasMonth, Literal(ticket.has_month)))
+            if ticket.has_auto_renewal is not None:
+                self.graph.add((ticket_uri, ONTOLOGY.hasAutoRenewal, Literal(ticket.has_auto_renewal, datatype=XSD.boolean)))
+            if ticket.has_payment_method:
+                self.graph.add((ticket_uri, ONTOLOGY.hasPaymentMethod, Literal(ticket.has_payment_method)))
+        
+        return ticket_uri
+    
+    def sync_ticket_to_ontology(self, ticket):
+        """Sync a single ticket to ontology"""
+        self.graph = Graph()  # Reset graph
+        self.graph.bind("", ONTOLOGY)
+        ticket_uri = self.ticket_to_rdf(ticket)
+        self._upload_to_fuseki()
+        return ticket_uri
+    
+    def delete_ticket_from_ontology(self, ticket):
+        """Delete ticket from ontology"""
+        ticket_id = ticket.has_ticket_id.replace('-', '_').replace(' ', '_')
+        ticket_uri = f"{ONTOLOGY}ticket_{ticket_id}"
+        delete_query = f"""
+        PREFIX : <{ONTOLOGY}>
+        DELETE WHERE {{
+            <{ticket_uri}> ?p ?o .
         }}
         """
         from core.utils.fuseki import sparql_update

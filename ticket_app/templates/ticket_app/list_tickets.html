@@ -1,0 +1,290 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}Tickets — TRANSPERSO{% endblock %}
+
+{% block body %}
+<div class="hills-decoration"></div>
+{% include 'core/partials/_navbar.html' %}
+
+<!-- HERO SECTION -->
+<section class="hero" style="min-height: 40vh; padding: 6rem 2rem;">
+  <div class="hero-container" style="grid-template-columns: 1fr; text-align: center;">
+    <div class="hero-content">
+      <h2 style="font-size: 48px; margin-bottom: 1rem;">
+        <span class="trans">Gestion des</span> <span class="perso">Tickets</span>
+      </h2>
+      <p style="font-size: 18px; max-width: 700px; margin: 0 auto 2rem;">
+        Gérez tous les tickets : Ticket Simple, Ticket Senior, Ticket Étudiant, Abonnement Hebdomadaire et Abonnement Mensuel.
+      </p>
+      <a href="{% url 'create_ticket' %}" class="cta-hero" style="padding: 1rem 2.5rem; font-size: 15px;">
+        + Ajouter un Ticket
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- MESSAGES -->
+{% if messages %}
+  <div style="max-width: 1280px; margin: 2rem auto; padding: 0 2rem;">
+    {% for message in messages %}
+      <div style="background: #d1fae5; color: #065f46; padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1rem; font-weight: 600; box-shadow: var(--shadow-sm);">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<!-- TABLEAU DES TICKETS -->
+<section style="max-width: 1280px; margin: 4rem auto; padding: 0 2rem;">
+  {% if tickets %}
+    <div class="table-container">
+      <div class="table-header">
+        <h3>Liste des Tickets</h3>
+      </div>
+      <div class="table-wrapper">
+        <table class="ticket-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Prix</th>
+              <th>Durée de validité</th>
+              <th>Date d'achat</th>
+              <th>Propriétaire</th>
+              <th>Valide pour</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ticket in tickets %}
+              <tr>
+                <td class="ticket-id">
+                  <strong>{{ ticket.has_ticket_id }}</strong>
+                </td>
+                <td class="ticket-type">
+                  <span class="badge badge-{{ ticket.ticket_type|lower }}">
+                    {{ ticket.ticket_type }}
+                  </span>
+                </td>
+                <td>{{ ticket.has_price|default:"—" }}</td>
+                <td>{{ ticket.has_validity_duration|default:"—" }}</td>
+                <td>{{ ticket.has_purchase_date|default:"—" }}</td>
+                <td>{{ ticket.owned_by.has_name|default:"—" }}</td>
+                <td>{{ ticket.valid_for.transport_line_number|default:"—" }}</td>
+                <td class="actions">
+                  <a href="{% url 'update_ticket' ticket.pk %}" class="btn-edit">Modifier</a>
+                  <a href="{% url 'delete_ticket' ticket.pk %}" class="btn-delete">Supprimer</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+        </svg>
+      </div>
+      <p>Aucun ticket enregistré pour le moment.</p>
+      <a href="{% url 'create_ticket' %}" class="cta-hero">+ Créer le premier ticket</a>
+    </div>
+  {% endif %}
+</section>
+
+<!-- CSS INTÉGRÉ -->
+<style>
+  .table-container {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .table-header {
+    background: linear-gradient(135deg, #1f2937, #374151);
+    color: white;
+    padding: 1.5rem 2rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+
+  .table-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    letter-spacing: -0.5px;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ticket-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+  }
+
+  .ticket-table thead {
+    background: #f8fafc;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.8px;
+    color: #64748b;
+  }
+
+  .ticket-table th {
+    padding: 1.2rem 1.5rem;
+    text-align: left !important;
+    font-weight: 600;
+  }
+
+  .ticket-table th:last-child {
+    text-align: center !important;
+  }
+
+  .ticket-table tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+  }
+
+  .ticket-table tbody tr:hover {
+    background: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  .ticket-table td {
+    padding: 1.3rem 1.5rem;
+    color: #475569;
+    vertical-align: middle;
+  }
+
+  .ticket-id {
+    font-weight: 700;
+    color: #6366f1;
+    font-size: 0.95rem;
+  }
+
+  .ticket-type .badge {
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: white;
+    display: inline-block;
+    min-width: 90px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .badge-ticketsimple { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+  .badge-ticketsenior { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+  .badge-ticketétudiant { background: linear-gradient(135deg, #10b981, #34d399); }
+  .badge-abonnementhebdomadaire { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+  .badge-abonnementmensuel { background: linear-gradient(135deg, #ef4444, #f87171); }
+
+  .actions {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .btn-edit, .btn-delete {
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    margin: 0 4px;
+    transition: all 0.3s ease;
+    display: inline-block;
+  }
+
+  .btn-edit {
+    color: #06b6d4;
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+  }
+
+  .btn-edit:hover {
+    background: #06b6d4;
+    color: white;
+    transform: translateY(-1px);
+  }
+
+  .btn-delete {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .btn-delete:hover {
+    background: #ef4444;
+    color: white;
+    transform: translateY(-1px);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 5rem 2rem;
+    background: white;
+    border-radius: 20px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    background: #e0e7ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .empty-icon svg {
+    width: 40px;
+    height: 40px;
+    color: #6366f1;
+  }
+
+  .empty-state p {
+    font-size: 18px;
+    color: #64748b;
+    margin-bottom: 1.5rem;
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 768px) {
+    .table-header {
+      padding: 1.2rem 1.5rem;
+    }
+    
+    .ticket-table th,
+    .ticket-table td {
+      padding: 1rem 1.2rem;
+      font-size: 14px;
+    }
+    
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+  }
+</style>
+
+{% include 'core/partials/_footer.html' %}
+{% endblock %}
+

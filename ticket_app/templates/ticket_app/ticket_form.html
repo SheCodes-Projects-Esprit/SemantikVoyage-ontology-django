@@ -1,0 +1,230 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}{{ title|default:"Créer Ticket" }} — TRANSPERSO{% endblock %}
+
+{% block body %}
+<div class="hills-decoration"></div>
+{% include 'core/partials/_navbar.html' %}
+
+<section class="ticket-form-section" style="padding: 4rem 2rem;">
+  <div class="form-container" style="max-width: 900px; margin: 0 auto; background: white; padding: 3rem; border-radius: 20px; box-shadow: var(--shadow-lg);">
+    <h2 class="form-title" style="font-size: 2rem; margin-bottom: 1rem; text-align: center;">
+      <span class="trans">{{ title|default:"Nouveau" }}</span> <span class="perso">Ticket</span>
+    </h2>
+    <p class="form-subtitle" style="text-align: center; color: #64748b; margin-bottom: 2rem;">Remplissez les informations du ticket.</p>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div style="background: #fee2e2; color: #991b1b; padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; font-weight: 600;">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post" class="ticket-form">
+      {% csrf_token %}
+
+      <!-- Champs communs -->
+      <div class="form-section" style="margin-bottom: 2rem;">
+        <h3 class="section-title" style="font-size: 1.2rem; margin-bottom: 1.5rem; color: #1f2937; font-weight: 700;">Informations communes</h3>
+        <div class="form-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;">
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">
+              {{ form.ticket_type.label }} <span class="required" style="color: #ef4444;">*</span>
+            </label>
+            <div class="field-wrapper">{{ form.ticket_type }}</div>
+            {% if form.ticket_type.errors %}
+              <small class="field-error" style="color: #ef4444; font-size: 0.875rem;">{{ form.ticket_type.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">
+              {{ form.has_ticket_id.label }} <span class="required" style="color: #ef4444;">*</span>
+            </label>
+            <div class="field-wrapper">{{ form.has_ticket_id }}</div>
+            {% if form.has_ticket_id.errors %}
+              <small class="field-error" style="color: #ef4444; font-size: 0.875rem;">{{ form.has_ticket_id.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_price.label }}</label>
+            <div class="field-wrapper">{{ form.has_price }}</div>
+            {% if form.has_price.errors %}
+              <small class="field-error" style="color: #ef4444; font-size: 0.875rem;">{{ form.has_price.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_validity_duration.label }}</label>
+            <div class="field-wrapper">{{ form.has_validity_duration }}</div>
+            {% if form.has_validity_duration.errors %}
+              <small class="field-error" style="color: #ef4444; font-size: 0.875rem;">{{ form.has_validity_duration.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_purchase_date.label }}</label>
+            <div class="field-wrapper">{{ form.has_purchase_date }}</div>
+            {% if form.has_purchase_date.errors %}
+              <small class="field-error" style="color: #ef4444; font-size: 0.875rem;">{{ form.has_purchase_date.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_expiration_date.label }}</label>
+            <div class="field-wrapper">{{ form.has_expiration_date }}</div>
+            {% if form.has_expiration_date.errors %}
+              <small class="field-error" style="color: #ef4444; font-size: 0.875rem;">{{ form.has_expiration_date.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.owned_by.label }}</label>
+            <div class="field-wrapper">{{ form.owned_by }}</div>
+            {% if form.owned_by.errors %}
+              <small class="field-error" style="color: #ef4444; font-size: 0.875rem;">{{ form.owned_by.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.valid_for.label }}</label>
+            <div class="field-wrapper">{{ form.valid_for }}</div>
+            {% if form.valid_for.errors %}
+              <small class="field-error" style="color: #ef4444; font-size: 0.875rem;">{{ form.valid_for.errors|join:", " }}</small>
+            {% endif %}
+          </div>
+
+          <div class="form-field" style="grid-column: span 2;">
+            <label class="field-label" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">
+              {{ form.is_reduced_fare }}
+              <span>{{ form.is_reduced_fare.label }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Champs spécifiques TicketSimple -->
+      <div class="form-section" id="section_ticketsimple" style="display: none; margin-bottom: 2rem;">
+        <h3 class="section-title" style="font-size: 1.2rem; margin-bottom: 1.5rem; color: #1f2937; font-weight: 700;">Informations Ticket Simple</h3>
+        <div class="form-field">
+          <label class="field-label" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">
+            {{ form.is_used }}
+            <span>{{ form.is_used.label }}</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Champs spécifiques TicketSenior -->
+      <div class="form-section" id="section_ticketsenior" style="display: none; margin-bottom: 2rem;">
+        <h3 class="section-title" style="font-size: 1.2rem; margin-bottom: 1.5rem; color: #1f2937; font-weight: 700;">Informations Ticket Senior</h3>
+        <div class="form-field">
+          <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_age_condition.label }}</label>
+          <div class="field-wrapper">{{ form.has_age_condition }}</div>
+        </div>
+      </div>
+
+      <!-- Champs spécifiques TicketÉtudiant -->
+      <div class="form-section" id="section_ticketetudiant" style="display: none; margin-bottom: 2rem;">
+        <h3 class="section-title" style="font-size: 1.2rem; margin-bottom: 1.5rem; color: #1f2937; font-weight: 700;">Informations Ticket Étudiant</h3>
+        <div class="form-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;">
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_institution_name.label }}</label>
+            <div class="field-wrapper">{{ form.has_institution_name }}</div>
+          </div>
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_student_id.label }}</label>
+            <div class="field-wrapper">{{ form.has_student_id }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Champs spécifiques AbonnementHebdomadaire -->
+      <div class="form-section" id="section_abonnementhebdomadaire" style="display: none; margin-bottom: 2rem;">
+        <h3 class="section-title" style="font-size: 1.2rem; margin-bottom: 1.5rem; color: #1f2937; font-weight: 700;">Informations Abonnement Hebdomadaire</h3>
+        <div class="form-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;">
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_start_date.label }}</label>
+            <div class="field-wrapper">{{ form.has_start_date }}</div>
+          </div>
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_end_date.label }}</label>
+            <div class="field-wrapper">{{ form.has_end_date }}</div>
+          </div>
+          <div class="form-field" style="grid-column: span 2;">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_zone_access.label }}</label>
+            <div class="field-wrapper">{{ form.has_zone_access }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Champs spécifiques AbonnementMensuel -->
+      <div class="form-section" id="section_abonnementmensuel" style="display: none; margin-bottom: 2rem;">
+        <h3 class="section-title" style="font-size: 1.2rem; margin-bottom: 1.5rem; color: #1f2937; font-weight: 700;">Informations Abonnement Mensuel</h3>
+        <div class="form-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;">
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_month.label }}</label>
+            <div class="field-wrapper">{{ form.has_month }}</div>
+          </div>
+          <div class="form-field">
+            <label class="field-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">{{ form.has_payment_method.label }}</label>
+            <div class="field-wrapper">{{ form.has_payment_method }}</div>
+          </div>
+          <div class="form-field" style="grid-column: span 2;">
+            <label class="field-label" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">
+              {{ form.has_auto_renewal }}
+              <span>{{ form.has_auto_renewal.label }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boutons -->
+      <div class="form-actions" style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
+        <button type="submit" class="btn-submit" style="padding: 0.875rem 2rem; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: all 0.3s ease;">
+          Enregistrer
+        </button>
+        <a href="{% url 'list_tickets' %}" class="btn-cancel" style="padding: 0.875rem 2rem; background: #e5e7eb; color: #374151; border: none; border-radius: 12px; font-weight: 700; font-size: 1rem; text-decoration: none; display: inline-block; transition: all 0.3s ease;">
+          Annuler
+        </a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const ticketTypeSelect = document.getElementById('ticket_type');
+  const sections = {
+    'ticketsimple': document.getElementById('section_ticketsimple'),
+    'ticketsenior': document.getElementById('section_ticketsenior'),
+    'ticketétudiant': document.getElementById('section_ticketetudiant'),
+    'abonnementhebdomadaire': document.getElementById('section_abonnementhebdomadaire'),
+    'abonnementmensuel': document.getElementById('section_abonnementmensuel')
+  };
+
+  function toggleSections() {
+    // Hide all sections
+    Object.values(sections).forEach(section => {
+      if (section) section.style.display = 'none';
+    });
+
+    // Show selected section
+    const selectedType = ticketTypeSelect.value;
+    if (selectedType && sections[selectedType]) {
+      sections[selectedType].style.display = 'block';
+    }
+  }
+
+  if (ticketTypeSelect) {
+    ticketTypeSelect.addEventListener('change', toggleSections);
+    toggleSections(); // Initial call
+  }
+});
+</script>
+
+{% include 'core/partials/_footer.html' %}
+{% endblock %}
+

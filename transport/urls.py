@@ -24,5 +24,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
     path('transport/', include('transport_app.urls')),
+    path('ticket/', include('ticket_app.urls')),
     re_path(r'^\.well-known/.*$', block_devtools),  # Bloque tout .well-known
 ]
