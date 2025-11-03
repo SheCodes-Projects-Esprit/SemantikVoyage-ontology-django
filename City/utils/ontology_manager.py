@@ -57,19 +57,28 @@ def city_sparql_update(update: str):
     """
     graph_uri = "http://www.transport-ontology.org/travel"
     text = update or ""
-    # Normalize small known typos from the LLM
-    text = text.replace('City_hasName', 'cityName')
+    # Normalize small known typos from the LLM (ensure INSERT uses correct predicate)
+    text = text.replace('City_hasName', 'cityName').replace(':City_hasName', ':cityName')
 
     upper = text.upper()
     payload = None
     if 'INSERT DATA' in upper:
-        # Inject GRAPH into the first INSERT DATA block
+        # If a GRAPH clause already exists inside INSERT, do NOT inject another one
         try:
             import re
-            text = re.sub(r'INSERT\s+DATA\s*{', f'INSERT DATA {{ GRAPH <{graph_uri}> ', text, count=1, flags=re.IGNORECASE)
+            has_graph = re.search(r'INSERT\s+DATA\s*{[^}]*GRAPH\s*<', text, flags=re.IGNORECASE | re.DOTALL) is not None
+            if not has_graph:
+                # Inject GRAPH into the opening INSERT DATA
+                text = re.sub(r'INSERT\s+DATA\s*{', f'INSERT DATA {{ GRAPH <{graph_uri}> {{', text, count=1, flags=re.IGNORECASE)
+                # Ensure an extra closing brace to close the GRAPH block
+                text = text.rstrip()
+                if text.endswith('}'):  # closes inner block
+                    text = text + '}'   # close outer INSERT
+                else:
+                    text = text + ' }}'
         except Exception:
             pass
-        payload = {'update': SPARQL_PREFIXES + text}
+        payload = {'update': SPARQL_PREFIXES + '\n' + text}
     elif 'DELETE WHERE' in upper:
         try:
             import re
@@ -88,6 +97,19 @@ def city_sparql_update(update: str):
         resp = requests.post(FUSEKI_UPDATE_URL, data=payload, headers=headers, timeout=20)
         if resp.status_code != 200:
             raise Exception(f"Fuseki update failed: {resp.status_code} - {resp.text}")
+        # Post-fix: migrate any :City_hasName literals to :cityName and remove old ones
+        fix_insert = f"""
+        PREFIX : <{NS}>
+        INSERT {{ GRAPH <{graph_uri}> {{ ?s :cityName ?n }} }}
+        WHERE  {{ GRAPH <{graph_uri}> {{ ?s :City_hasName ?n }} }}
+        """
+        requests.post(FUSEKI_UPDATE_URL, data={'update': fix_insert}, headers=headers, timeout=20)
+        fix_delete = f"""
+        PREFIX : <{NS}>
+        WITH <{graph_uri}>
+        DELETE WHERE {{ {{ ?s :City_hasName ?n }} }}
+        """
+        requests.post(FUSEKI_UPDATE_URL, data={'update': fix_delete}, headers=headers, timeout=20)
         return True
     except Exception as e:
         print(f"[city_sparql_update] Error: {e}")
