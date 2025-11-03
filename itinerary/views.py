@@ -9,6 +9,7 @@ from .utils.ontology_manager import (
 )
 from .utils.ai_generator import generate_itinerary_suggestions
 from core.utils.fuseki import sparql_query
+from .utils.ai_nl_interface import ai_generate_and_execute
 
 
 # ----------------------------------------------------------------------
@@ -343,3 +344,19 @@ def itinerary_ai_suggest(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return render(request, "core/itinerary/itinerary_ai_suggest.html")
+
+
+# ----------------------------------------------------------------------
+# AI NL QUERY CONSOLE (JSON API)
+# ----------------------------------------------------------------------
+def itinerary_ai_query(request):
+    """NL -> SPARQL endpoint for SELECT/UPDATE, returns JSON."""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    payload = request.POST.dict()
+    nl_text = payload.get("query") or payload.get("q") or ""
+    result = ai_generate_and_execute(nl_text)
+
+    status = 200 if "error" not in result else 400
+    return JsonResponse(result, status=status)

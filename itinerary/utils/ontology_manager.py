@@ -47,7 +47,8 @@ def _run_sparql(query, expect_json=True, timeout=10, all_graphs=False):
         try:
             headers = {'Accept': 'application/sparql-results+json'}
             # Use HTTP GET directly without default-graph-uri to search ALL graphs
-            resp = requests.get(FUSEKI_QUERY_URL, params={'query': query}, headers=headers, timeout=timeout)
+            # unionDefaultGraph=true makes Fuseki expose the union of all named graphs as the default graph
+            resp = requests.get(FUSEKI_QUERY_URL, params={'query': query, 'unionDefaultGraph': 'true'}, headers=headers, timeout=timeout)
             resp.raise_for_status()
             try:
                 return resp.json()
@@ -74,7 +75,7 @@ def _run_sparql(query, expect_json=True, timeout=10, all_graphs=False):
     # HTTP fallback (mimic Fuseki UI) - also without default-graph-uri
     try:
         headers = {'Accept': 'application/sparql-results+json'}
-        resp = requests.get(FUSEKI_QUERY_URL, params={'query': query}, headers=headers, timeout=timeout)
+        resp = requests.get(FUSEKI_QUERY_URL, params={'query': query, 'unionDefaultGraph': 'true'}, headers=headers, timeout=timeout)
         resp.raise_for_status()
         try:
             return resp.json()
@@ -86,7 +87,8 @@ def _run_sparql(query, expect_json=True, timeout=10, all_graphs=False):
         # Try encoded fallback
         try:
             qs = urlencode({'query': query})
-            resp2 = requests.get(f"{FUSEKI_QUERY_URL}?{qs}", headers=headers, timeout=timeout)
+            # Keep unionDefaultGraph for encoded fallback
+            resp2 = requests.get(f"{FUSEKI_QUERY_URL}?unionDefaultGraph=true&{qs}", headers=headers, timeout=timeout)
             resp2.raise_for_status()
             return resp2.json()
         except Exception as e2:
@@ -600,6 +602,40 @@ def list_itineraries(filters=None):
     except Exception as e:
         print(f"⚠️ Error setting up graph query: {e}")
     
+    # Query 3: Scan across ALL named graphs using GRAPH ?g { ... }
+    query3 = f"""
+    PREFIX : <{NS}>
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+    SELECT DISTINCT ?g ?s ?id ?status ?cost ?duration ?type WHERE {{
+      GRAPH ?g {{
+        {{ ?s rdf:type/rdfs:subClassOf* :Itinerary . OPTIONAL {{ ?s :itineraryID ?id }} }}
+        UNION
+        {{ ?s :itineraryID ?id . OPTIONAL {{ ?s rdf:type/rdfs:subClassOf* :Itinerary }} }}
+        OPTIONAL {{ ?s rdf:type ?type }}
+        OPTIONAL {{ ?s :overallStatus ?status }}
+        OPTIONAL {{ ?s :totalCostEstimate ?cost }}
+        OPTIONAL {{ ?s :totalDurationDays ?duration }}
+      }}
+    }}
+    ORDER BY ?id
+    LIMIT 500
+    """
+    print("🔍 Query 3: Scanning across all named graphs with GRAPH ?g {...} ...")
+    try:
+        result3 = _run_sparql(query3, all_graphs=True)
+        if isinstance(result3, dict):
+            bindings3 = result3.get('results', {}).get('bindings', []) or []
+            print(f"✅ Query 3 returned {len(bindings3)} bindings")
+            for b in bindings3:
+                s_uri = b.get('s', {}).get('value', '') if isinstance(b.get('s'), dict) else str(b.get('s', ''))
+                if s_uri and s_uri not in seen_subjects:
+                    all_bindings.append(b)
+                    seen_subjects.add(s_uri)
+    except Exception as e:
+        print(f"❌ Query 3 failed: {e}")
+
     bindings = all_bindings
     print(f"📊 Total unique bindings after combining queries: {len(bindings)}")
 
@@ -619,30 +655,18 @@ def list_itineraries(filters=None):
         iid_obj = b.get('id', {})
         iid = iid_obj.get('value', '') if isinstance(iid_obj, dict) else str(iid_obj) if iid_obj else ''
         
-        # If no ID from property, try to extract from subject URI
+        # If no ID from property, try to extract fallback from subject URI
         if not iid:
             s_obj = b.get('s', {})
             s_uri = s_obj.get('value', '') if isinstance(s_obj, dict) else str(s_obj) if s_obj else ''
             print(f"  🔍 No ID from property, trying to extract from URI: {s_uri}")
-            # Try to extract ID from URI (e.g., .../travel#I-B-001 or .../travel#itinerary/I-E-005)
             if s_uri:
-                if '#' in s_uri:
-                    local_part = s_uri.split('#')[-1]
-                    # Handle cases like "itinerary/I-E-005" - extract just the ID part
-                    if '/' in local_part:
-                        # Extract last part after slash (e.g., "I-E-005" from "itinerary/I-E-005")
-                        potential_id = local_part.split('/')[-1]
-                        print(f"  🔍 Extracted potential ID from path: {potential_id}")
-                        if potential_id.startswith(('I-B-', 'I-L-', 'I-E-')):
-                            iid = potential_id
-                    elif local_part.startswith(('I-B-', 'I-L-', 'I-E-')):
-                        iid = local_part
-                    elif local_part.startswith('I-'):
-                        iid = local_part
-                elif '/' in s_uri:
-                    local_part = s_uri.split('/')[-1]
-                    if local_part.startswith(('I-B-', 'I-L-', 'I-E-')):
-                        iid = local_part
+                local_part = s_uri.split('#')[-1] if '#' in s_uri else s_uri.split('/')[-1]
+                if '/' in local_part:
+                    local_part = local_part.split('/')[-1]
+                # Prefer canonical patterns but accept any non-empty local part as fallback
+                if local_part:
+                    iid = local_part
         
         if not iid:
             print(f"⚠️ Skipping entry {idx + 1} with empty id. Binding: {b}")
@@ -681,9 +705,21 @@ def list_itineraries(filters=None):
             else:
                 type_name = "Unknown"
 
+        # Heuristic fallback for AI-created subjects without rdf:type or canonical ID
+        if type_name == "Unknown":
+            lid = iid.lower()
+            if "business" in lid or "b_trip" in lid or "btrip" in lid:
+                type_name = "Business"
+            elif "leisure" in lid or "l_trip" in lid or "ltrip" in lid:
+                type_name = "Leisure"
+            elif "educational" in lid or "e_trip" in lid or "etrip" in lid or "edu" in lid:
+                type_name = "Educational"
+
         # Extract status
         status_obj = b.get('status', {})
         status = status_obj.get('value', 'Unknown') if isinstance(status_obj, dict) else str(status_obj) if status_obj else 'Unknown'
+        if not status or status == 'Unknown':
+            status = 'Planned'
 
         # Extract cost - handle typed values
         cost_obj = b.get('cost', {})
@@ -722,6 +758,14 @@ def list_itineraries(filters=None):
 
         # Apply filters
         if filters:
+            # Filter by a CSV list of IDs
+            if filters.get('id_in'):
+                try:
+                    allowed = {i.strip() for i in str(filters['id_in']).split(',') if i.strip()}
+                    if row['id'] not in allowed:
+                        continue
+                except Exception:
+                    pass
             if filters.get('type') and filters['type'].strip().title() != row['type']:
                 continue
             if filters.get('status') and filters['status'].strip() != row['status']:
