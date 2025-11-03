@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'core',
     'itinerary',
     'transport_app',
+    'city',
+    'company',
 ]
 
 MIDDLEWARE = [

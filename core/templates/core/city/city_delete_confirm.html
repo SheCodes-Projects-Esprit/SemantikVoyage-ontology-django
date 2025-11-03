@@ -1,0 +1,70 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}Delete {{ city.name|default:name }}{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 600px; margin: 60px auto; text-align: center;">
+    {% if messages %}
+      <div style="margin-bottom: 1.5rem; text-align:left;">
+        {% for message in messages %}
+          <p style="padding: .9rem 1.2rem; border-radius: 10px; font-weight: 600; margin: .5rem 0;
+                    {% if message.tags == 'error' %}background:#fee2e2; border:1px solid #fecaca; color:#991b1b;
+                    {% elif message.tags == 'warning' %}background:#fef3c7; border:1px solid #fde68a; color:#92400e;
+                    {% else %}background:#ecfeff; border:1px solid #a5f3fc; color:#155e75;{% endif %}">
+            {{ message }}
+          </p>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <div style="font-size: 64px; margin-bottom: 1.5rem; animation: pulse 2s infinite;">⚠️</div>
+    <h2>Delete City?</h2>
+    <div style="background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem; margin: 2rem 0;">
+      <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+        Permanently delete <strong>{{ city.name|default:name }}</strong> from RDF store?
+      </p>
+      
+      {% if city %}
+        <div style="background: var(--bg-muted); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+          <div style="display: grid; gap: 1rem; text-align: left;">
+            <div><strong>Name:</strong> {{ city.name|default:"Unknown" }}</div>
+            <div><strong>Type:</strong> {{ city.type|default:"Unknown" }}</div>
+            <div><strong>Population:</strong> {{ city.population|default:"N/A" }}</div>
+          </div>
+        </div>
+      {% else %}
+        <div style="background: #fef3c7; padding: 1rem; border-radius: var(--radius); border: 1px solid #fde68a; margin-bottom: 1.5rem;">
+          <p style="color: #92400e;">⚠️ City data could not be loaded, but you can still delete it.</p>
+          <p style="color: #92400e; margin-top: 0.5rem;">Name: <strong>{{ name }}</strong></p>
+        </div>
+      {% endif %}
+      
+      <div style="padding: 1rem; background: #fee; border-radius: var(--radius); border: 1px solid #fcc;">
+        <p style="color: #991b1b; font-weight: 600;">⚠️ This action is irreversible.</p>
+      </div>
+      
+      <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" style="padding: 1rem 2rem; background: #ef4444; color: white; border: none; border-radius: var(--radius-full); cursor: pointer; font-weight: 600;">
+            🗑️ Delete
+          </button>
+        </form>
+        <a href="{% url 'city:list' %}" style="padding: 1rem 2rem; background: transparent; border: 2px solid var(--border); color: var(--text-secondary); border-radius: var(--radius-full); text-decoration: none; font-weight: 600;">
+          Cancel
+        </a>
+      </div>
+    </div>
+  </div>
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}
+
+{% block styles %}
+<style>
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+</style>
+{% endblock %}

@@ -9,4 +9,6 @@ urlpatterns = [
     path('debug-fuseki/', views.debug_fuseki, name='debug_fuseki'),
     path('itinerary/', include('itinerary.urls')),
     path('schedule/', include('schedule.urls')),
+    path('city/', include('city.urls')),
+    path('company/', include('company.urls')),
 ]

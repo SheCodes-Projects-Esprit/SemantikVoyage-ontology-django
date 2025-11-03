@@ -1,0 +1,64 @@
+{% extends 'core/layout/_base.html' %}
+{% load static %}
+
+{% block title %}{{ company.name }} - Company Details{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 900px; margin: 60px auto;">
+    {% if messages %}
+      <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+          <p style="padding: .9rem 1.2rem; border-radius: 10px; font-weight: 600; margin: .5rem 0;
+                    {% if message.tags == 'error' %}background:#fee2e2; border:1px solid #fecaca; color:#991b1b;
+                    {% elif message.tags == 'warning' %}background:#fef3c7; border:1px solid #fde68a; color:#92400e;
+                    {% else %}background:#ecfeff; border:1px solid #a5f3fc; color:#155e75;{% endif %}">
+            {{ message }}
+          </p>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <h2>{{ company.name }} <small style="color: var(--text-muted);">{{ company.type|default:"Company" }}</small></h2>
+
+    <div class="itinerary-card" style="background: var(--bg-secondary); padding: 2rem; border-radius: var(--radius-lg); border: 2px solid var(--border);">
+      <h3>Core Data</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+        <div><strong>Employees:</strong> {{ company.number_of_employees|default:"0" }}</div>
+        <div><strong>Founded:</strong> {{ company.founded_year|default:"—" }}</div>
+        <div><strong>Headquarters:</strong> {{ company.headquarters_location|default:"—" }}</div>
+      </div>
+    </div>
+
+    <div class="itinerary-card" style="margin-top: 2rem;">
+      <h3>{{ company.type|default:"Company" }} Details</h3>
+      {% if company.type == "BusCompany" %}
+        <div><strong>Bus Lines:</strong> {{ company.number_of_bus_lines|default:"—" }}</div>
+        <div><strong>Average Bus Age:</strong> {{ company.average_bus_age|default:"—" }}</div>
+        <div><strong>Ticket Price:</strong> {{ company.ticket_price|default:"—" }}</div>
+        <div><strong>Eco-friendly Fleet:</strong> {{ company.eco_friendly_fleet|yesno:"Yes,No" }}</div>
+      {% elif company.type == "MetroCompany" %}
+        <div><strong>Lines:</strong> {{ company.number_of_lines|default:"—" }}</div>
+        <div><strong>Track Length:</strong> {{ company.total_track_length|default:"—" }}</div>
+        <div><strong>Automation:</strong> {{ company.automation_level|default:"—" }}</div>
+        <div><strong>Daily Passengers:</strong> {{ company.daily_passengers|default:"—" }}</div>
+      {% elif company.type == "TaxiCompany" %}
+        <div><strong>Vehicles:</strong> {{ company.number_of_vehicles|default:"—" }}</div>
+        <div><strong>Booking App:</strong> {{ company.booking_app|yesno:"Yes,No" }}</div>
+        <div><strong>Avg Fare / km:</strong> {{ company.average_fare_per_km|default:"—" }}</div>
+      {% elif company.type == "BikeSharingCompany" %}
+        <div><strong>Stations:</strong> {{ company.number_of_stations|default:"—" }}</div>
+        <div><strong>Bikes:</strong> {{ company.bike_count|default:"—" }}</div>
+        <div><strong>Subscription Price:</strong> {{ company.subscription_price|default:"—" }}</div>
+        <div><strong>Electric Bikes:</strong> {{ company.electric_bikes|yesno:"Yes,No" }}</div>
+      {% endif %}
+    </div>
+
+    <div style="margin-top: 3rem; display: flex; gap: 1rem;">
+      <a href="{% url 'company:update' company.name %}" class="cta-hero">Edit</a>
+      <a href="{% url 'company:delete' company.name %}" class="cta-ghost">Delete</a>
+      <a href="{% url 'company:list' %}" class="cta-ghost">Back to List</a>
+    </div>
+  </div>
+  {% include 'core/partials/_footer.html' %}
+{% endblock %}
+
