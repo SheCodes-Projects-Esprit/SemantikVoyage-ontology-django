@@ -39,6 +39,91 @@ def _run_query_all_graphs(query: str):
         return {"results": {"bindings": []}}
 
 
+def query_all_graphs(sparql: str):
+    """Public helper: run SELECT across ALL graphs (no default-graph-uri)."""
+    return _run_query_all_graphs(sparql)
+
+
+def _resolve_city_subject_by_name(city_name: str):
+    sname = escape_sparql_string(city_name)
+    q = f"""
+    SELECT ?s WHERE {{ ?s :cityName "{sname}" }} LIMIT 1
+    """
+    res = _run_query_all_graphs(q)
+    bindings = res.get('results', {}).get('bindings', [])
+    if not bindings:
+        return None
+    return f"<{bindings[0].get('s', {}).get('value', '')}>" if bindings[0].get('s') else None
+
+
+def _delete_node_everywhere(node: str):
+    """Delete triples for node as subject or object across default and named graphs."""
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    graph_uri = NS.rstrip('#')
+
+    # 1) Default graph deletes
+    try:
+        requests.post(FUSEKI_UPDATE_URL, data={'update': f"DELETE WHERE {{ {node} ?p ?o }}"}, headers=headers, timeout=15)
+        requests.post(FUSEKI_UPDATE_URL, data={'update': f"DELETE WHERE {{ ?s ?p {node} }}"}, headers=headers, timeout=15)
+    except Exception:
+        pass
+
+    # 2) Specific ontology named graph
+    try:
+        requests.post(FUSEKI_UPDATE_URL, data={'update': f"WITH <{graph_uri}> DELETE WHERE {{ {node} ?p ?o }}"}, headers=headers, timeout=15)
+        requests.post(FUSEKI_UPDATE_URL, data={'update': f"WITH <{graph_uri}> DELETE WHERE {{ ?s ?p {node} }}"}, headers=headers, timeout=15)
+    except Exception:
+        pass
+
+    # 3) Any named graph
+    try:
+        upd1 = f"DELETE {{ GRAPH ?g {{ {node} ?p ?o }} }} WHERE {{ GRAPH ?g {{ {node} ?p ?o }} }}"
+        upd2 = f"DELETE {{ GRAPH ?g {{ ?s ?p {node} }} }} WHERE {{ GRAPH ?g {{ ?s ?p {node} }} }}"
+        requests.post(FUSEKI_UPDATE_URL, data={'update': upd1}, headers=headers, timeout=15)
+        requests.post(FUSEKI_UPDATE_URL, data={'update': upd2}, headers=headers, timeout=15)
+    except Exception:
+        pass
+
+
+def cleanup_city_duplicates(name: str):
+    """Keep preferred :city_<Name> and delete other subjects having the same :cityName."""
+    preferred = f":city_{name.replace(' ', '_')}"
+    q = f"""
+    SELECT ?s WHERE {{ ?s :cityName "{escape_sparql_string(name)}" }}
+    """
+    res = _run_query_all_graphs(q)
+    for b in res.get('results', {}).get('bindings', []):
+        s = b.get('s', {}).get('value')
+        if not s:
+            continue
+        # skip preferred if matches local name
+        if s.endswith(preferred.replace(':', NS)) or s.endswith(preferred.split(':')[1]):
+            continue
+        _delete_node_everywhere(f"<{s}>")
+
+
+def delete_city_by_name(name: str) -> bool:
+    """Delete ALL subjects that have :cityName matching name (with and without artifacts)."""
+    norm = escape_sparql_string(name)
+    alt = escape_sparql_string(f"with name {name}")
+    q = f"""
+    SELECT ?s WHERE {{
+      {{ ?s :cityName "{norm}" }} UNION {{ ?s :cityName "{alt}" }}
+    }}
+    """
+    res = _run_query_all_graphs(q)
+    any_deleted = False
+    for b in res.get('results', {}).get('bindings', []):
+        s = b.get('s', {}).get('value')
+        if s:
+            _delete_node_everywhere(f"<{s}>")
+            any_deleted = True
+    # Also attempt canonical URI
+    _delete_node_everywhere(f":city_{name.replace(' ', '_')}")
+    _delete_node_everywhere(f":city_with_name_{name.replace(' ', '_')}")
+    return any_deleted
+
+
 def _run_update(update: str):
     sw = SPARQLWrapper(FUSEKI_UPDATE_URL)
     sw.setMethod(POST)
@@ -179,7 +264,19 @@ def get_city(city_name):
         results = _run_query_all_graphs(q)
         rows = [(b['prop']['value'], b['val']['value']) for b in results.get('results', {}).get('bindings', [])]
         if not rows:
-            return None
+            # Resolve by name to arbitrary subject, then re-query
+            node = _resolve_city_subject_by_name(city_name)
+            if node:
+                q2 = f"""
+                SELECT ?prop ?val WHERE {{
+                  {node} ?prop ?val .
+                  FILTER(isIRI(?val) || isLiteral(?val))
+                }}
+                """
+                results = _run_query_all_graphs(q2)
+                rows = [(b['prop']['value'], b['val']['value']) for b in results.get('results', {}).get('bindings', [])]
+            if not rows:
+                return None
 
     data = {'name': city_name}
     city_type = 'Capital'
