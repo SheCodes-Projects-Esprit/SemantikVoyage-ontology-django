@@ -1,5 +1,6 @@
 import time
-from SPARQLWrapper import SPARQLWrapper, JSON, POST, URLENCODED
+from rdflib.plugins.stores.sparqlstore import SPARQLStore, SPARQLUpdateStore
+from rdflib import Graph
 
 
 SPARQL_PREFIXES = """
@@ -15,20 +16,33 @@ FUSEKI_UPDATE_URL = "http://localhost:3030/transport_db/update"
 
 
 def _run_query(query: str):
-    sw = SPARQLWrapper(FUSEKI_QUERY_URL)
-    sw.setReturnFormat(JSON)
-    sw.setMethod('POST')
-    sw.setRequestMethod(URLENCODED)
-    sw.setQuery(SPARQL_PREFIXES + query)
-    return sw.query().convert()
+    store = SPARQLStore(FUSEKI_QUERY_URL)
+    g = Graph(store=store)
+    res = g.query(SPARQL_PREFIXES + query)
+    vars_ = [str(v) for v in res.vars]
+    bindings = []
+    for row in res:
+        b = {}
+        for i, v in enumerate(vars_):
+            term = row[i]
+            if term is None:
+                continue
+            val = str(term)
+            b[v] = {"type": "uri" if val.startswith('http') else "literal", "value": val}
+        bindings.append(b)
+    return {"results": {"bindings": bindings}}
 
 
 def _run_update(update: str):
-    sw = SPARQLWrapper(FUSEKI_UPDATE_URL)
-    sw.setMethod(POST)
-    sw.setRequestMethod(URLENCODED)
-    sw.setQuery(SPARQL_PREFIXES + update)
-    sw.query()
+    store = SPARQLUpdateStore()
+    store.open((FUSEKI_QUERY_URL, FUSEKI_UPDATE_URL))
+    try:
+        store.update(SPARQL_PREFIXES + update)
+    finally:
+        try:
+            store.close()
+        except Exception:
+            pass
 
 
 def escape_sparql_string(value):
