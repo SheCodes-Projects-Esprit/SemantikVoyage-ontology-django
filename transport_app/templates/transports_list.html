@@ -82,7 +82,375 @@
     </a>
   </div>
   {% endif %}
-</section>
+  <!-- Ajouter cette section après la liste des transports Django -->
+{% if ontology_available and ontology_transports %}
+<div class="mt-6" style="margin-top: 50px;">
+  <div class="table-container">
+    <div class="table-header">
+      <h3>
+        <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zM6.5 3h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1zm-1 2h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1zm1 2h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1z"/>
+            <path d="M12.5 7h-9a.5.5 0 0 1 0-1h9a.5.5 0 0 1 0 1zm-1 2h-7a.5.5 0 0 1 0-1h7a.5.5 0 0 1 0 1zm1 2h-9a.5.5 0 0 1 0-1h9a.5.5 0 0 1 0 1z"/>
+          </svg>
+          Transports depuis l’Ontologie
+        </span>
+      </h3>
+      <span class="badge badge-ontology">Fuseki</span>
+    </div>
 
+    <div class="table-wrapper">
+      <table class="station-table ontology-table">
+        <thead>
+          <tr>
+            <th>Ligne</th>
+            <th>Capacité</th>
+            <th>Vitesse (km/h)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for transport in ontology_transports %}
+          <tr>
+            <td class="station-name">
+              <strong>{{ transport.line.value }}</strong>
+            </td>
+            <td class="text-center">
+              {{ transport.capacity.value|default:"—" }}
+            </td>
+            <td class="text-center">
+              {{ transport.speed.value|default:"—" }}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="3" class="text-center" style="padding: 2rem; color: #94a3b8;">
+              Aucune donnée disponible dans l’ontologie.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="text-center mt-3">
+    <small style="color: #64748b;">
+      <em>Données synchronisées depuis le serveur SPARQL (Fuseki)</em>
+    </small>
+  </div>
+</div>
+{% endif %}
+</section>
+<!-- CSS INTÉGRÉ -->
+<style>
+  /* ———————— ONTOLOGIE TABLEAU — COHÉRENT & MODERNE ———————— */
+.ontology-table thead {
+  background: #f1f5f9;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.8px;
+  color: #abebf0;
+}
+
+.ontology-table th {
+  padding: 1.2rem 1.5rem;
+  text-align: left !important;
+  font-weight: 600;
+}
+
+.ontology-table th:last-child {
+  text-align: center !important;
+}
+
+.ontology-table tbody tr:hover {
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.ontology-table td {
+  padding: 1.3rem 1.5rem;
+  color: #08e3f7;
+  vertical-align: middle;
+}
+
+/* Badges spécifiques à l’ontologie */
+.badge-ontology {
+  background: linear-gradient(135deg, #6bdada, #1aa7ca);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  margin-left: auto;
+  display: inline-block;
+}
+
+.badge-accessible {
+  background: linear-gradient(135deg, #10b981, #34d399);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  min-width: 60px;
+  justify-content: center;
+}
+
+.badge-inaccessible {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  min-width: 60px;
+  justify-content: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .badge-ontology {
+    font-size: 9px;
+    padding: 3px 8px;
+  }
+  .ontology-table th,
+  .ontology-table td {
+    padding: 1rem 1.2rem;
+    font-size: 14px;
+  }
+}
+  /* ———————— TABLEAU STATIONS — ULTRA-MODERNE ———————— */
+  .table-container {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .table-header {
+    background: linear-gradient(135deg, #1f2937, #374151);
+    color: white;
+    padding: 1.5rem 2rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+
+  .table-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    letter-spacing: -0.5px;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .station-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+  }
+
+  .station-table thead {
+    background: #f8fafc;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.8px;
+    color: #64748b;
+  }
+
+  .station-table th {
+    padding: 1.2rem 1.5rem;
+    text-align: left !important;
+    font-weight: 600;
+  }
+
+  .station-table th:last-child {
+    text-align: center !important;
+  }
+
+  .station-table tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+  }
+
+  .station-table tbody tr:hover {
+    background: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  .station-table td {
+    padding: 1.3rem 1.5rem;
+    color: #475569;
+    vertical-align: middle;
+  }
+
+  .station-name {
+    font-weight: 700;
+    color: #1e293b;
+    font-size: 1.05rem;
+  }
+
+  .city-name {
+    color: #475569;
+    font-weight: 500;
+  }
+
+  .station-type .badge {
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: white;
+    display: inline-block;
+    min-width: 68px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .badge-busstop { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+  .badge-metrostation { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+  .badge-trainstation { background: linear-gradient(135deg, #10b981, #34d399); }
+  .badge-tramstation { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+
+  .transports-count {
+    font-size: 14px;
+  }
+
+  .transports-list {
+    display: inline;
+  }
+
+  .transport-tag {
+    display: inline-block;
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-right: 4px;
+  }
+
+  .actions {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .btn-edit, .btn-delete {
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    margin: 0 4px;
+    transition: all 0.3s ease;
+    display: inline-block;
+  }
+
+  .btn-edit {
+    color: #06b6d4;
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+  }
+
+  .btn-edit:hover {
+    background: #06b6d4;
+    color: white;
+    transform: translateY(-1px);
+  }
+
+  .btn-delete {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .btn-delete:hover {
+    background: #ef4444;
+    color: white;
+    transform: translateY(-1px);
+  }
+
+  /* ÉTAT VIDE */
+  .empty-state {
+    text-align: center;
+    padding: 5rem 2rem;
+    background: white;
+    border-radius: 20px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    background: #e0e7ff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .empty-icon svg {
+    width: 40px;
+    height: 40px;
+    color: #6366f1;
+  }
+
+  .empty-state p {
+    font-size: 18px;
+    color: #64748b;
+    margin-bottom: 1.5rem;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .table-header {
+      padding: 1.2rem 1.5rem;
+    }
+    
+    .station-table th,
+    .station-table td {
+      padding: 1rem 1.2rem;
+      font-size: 14px;
+    }
+    
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .btn-edit, .btn-delete {
+      font-size: 12px;
+      padding: 5px 8px;
+      margin: 0;
+    }
+
+    .transports-count {
+      font-size: 13px;
+    }
+
+    .transport-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+    }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
 {% include 'core/partials/_footer.html' %}
 {% endblock %}
