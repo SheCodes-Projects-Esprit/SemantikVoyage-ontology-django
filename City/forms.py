@@ -42,18 +42,10 @@ class CapitalCityForm(CityFormMixin, forms.ModelForm):
     class Meta:
         model = CapitalCity
         fields = [
-            'name', 'overall_status', 'population', 'area_km2',
+            'name', 'population', 'area_km2',
             'government_seat', 'ministries'
         ]
         widgets = {
-            'overall_status': forms.Select(
-                choices=[
-                    ('Planned', 'Planned'),
-                    ('Active', 'Active'),
-                    ('Archived', 'Archived')
-                ],
-                attrs={'class': 'form-control'}
-            ),
             'population': forms.NumberInput(attrs={
                 'min': 0,
                 'placeholder': 'e.g. 1050000',
@@ -75,7 +67,6 @@ class CapitalCityForm(CityFormMixin, forms.ModelForm):
             }),
         }
         labels = {
-            'overall_status': 'Status',
             'population': 'Population',
             'area_km2': 'Area (km²)',
             'government_seat': 'Government Seat',
@@ -106,18 +97,10 @@ class MetropolitanCityForm(CityFormMixin, forms.ModelForm):
     class Meta:
         model = MetropolitanCity
         fields = [
-            'name', 'overall_status', 'population', 'area_km2',
+            'name', 'population', 'area_km2',
             'districts', 'commute_minutes'
         ]
         widgets = {
-            'overall_status': forms.Select(
-                choices=[
-                    ('Planned', 'Planned'),
-                    ('Active', 'Active'),
-                    ('Archived', 'Archived')
-                ],
-                attrs={'class': 'form-control'}
-            ),
             'population': forms.NumberInput(attrs={
                 'min': 0,
                 'placeholder': 'e.g. 955000',
@@ -142,7 +125,6 @@ class MetropolitanCityForm(CityFormMixin, forms.ModelForm):
             }),
         }
         labels = {
-            'overall_status': 'Status',
             'population': 'Population',
             'area_km2': 'Area (km²)',
             'districts': 'Number of Districts',
@@ -172,18 +154,10 @@ class TouristicCityForm(CityFormMixin, forms.ModelForm):
     class Meta:
         model = TouristicCity
         fields = [
-            'name', 'overall_status', 'population', 'area_km2',
+            'name', 'population', 'area_km2',
             'annual_visitors', 'hotels'
         ]
         widgets = {
-            'overall_status': forms.Select(
-                choices=[
-                    ('Planned', 'Planned'),
-                    ('Active', 'Active'),
-                    ('Archived', 'Archived')
-                ],
-                attrs={'class': 'form-control'}
-            ),
             'population': forms.NumberInput(attrs={
                 'min': 0,
                 'placeholder': 'e.g. 221530',
@@ -207,7 +181,6 @@ class TouristicCityForm(CityFormMixin, forms.ModelForm):
             }),
         }
         labels = {
-            'overall_status': 'Status',
             'population': 'Population',
             'area_km2': 'Area (km²)',
             'annual_visitors': 'Annual Visitors',
@@ -237,18 +210,10 @@ class IndustrialCityForm(CityFormMixin, forms.ModelForm):
     class Meta:
         model = IndustrialCity
         fields = [
-            'name', 'overall_status', 'population', 'area_km2',
+            'name', 'population', 'area_km2',
             'factories', 'pollution_index'
         ]
         widgets = {
-            'overall_status': forms.Select(
-                choices=[
-                    ('Planned', 'Planned'),
-                    ('Active', 'Active'),
-                    ('Archived', 'Archived')
-                ],
-                attrs={'class': 'form-control'}
-            ),
             'population': forms.NumberInput(attrs={
                 'min': 0,
                 'placeholder': 'e.g. 142966',
@@ -274,7 +239,6 @@ class IndustrialCityForm(CityFormMixin, forms.ModelForm):
             }),
         }
         labels = {
-            'overall_status': 'Status',
             'population': 'Population',
             'area_km2': 'Area (km²)',
             'factories': 'Number of Factories',

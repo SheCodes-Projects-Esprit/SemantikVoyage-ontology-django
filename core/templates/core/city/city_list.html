@@ -4,6 +4,25 @@
 {% block body %}
   {% include 'core/partials/_navbar.html' %}
   <div class="container" style="max-width: 1300px; margin: 60px auto;">
+    <form method="post" action="{% url 'city:ai' %}" style="margin-bottom: 1.5rem; background: #fff; border: 2px solid var(--border); border-radius: 12px; padding: 1rem;">
+      {% csrf_token %}
+      <label style="font-weight: 600;">Ask AI to manage cities</label>
+      <p style="font-size: 12px; color: var(--text-muted); margin: .25rem 0 1rem;">Examples: "List all cities", "Add city with name Sousse", "Delete city where name = Tunis"</p>
+      <div style="display:flex; gap:.75rem; align-items:center;">
+        <input type="text" name="q" placeholder="Type a command in English..." style="flex:1; padding:.9rem; border:2px solid var(--border); border-radius:10px;" />
+        <button class="cta-btn" type="submit">Run</button>
+      </div>
+      {% if ai_query %}
+        <div style="margin-top:1rem; font-size: 13px; color: var(--text-secondary);">
+          <div><strong>Command:</strong> {{ ai_query }}</div>
+          <div style="margin-top:.25rem;"><strong>SPARQL:</strong></div>
+          <pre style="white-space: pre-wrap; background:#f8fafc; padding:.75rem; border:1px dashed #e2e8f0; border-radius:8px;">{{ ai_sparql }}</pre>
+          {% if ai_results %}
+            <div style="margin-top:.5rem;"><strong>Results:</strong> {{ ai_results|length }} rows</div>
+          {% endif %}
+        </div>
+      {% endif %}
+    </form>
     <div style="display: flex; justify-content: space-between; margin-bottom: 2rem;">
       <div>
         <h2>All Cities</h2>
@@ -36,7 +55,6 @@
           <tr>
             <th style="padding: 1rem; text-align: left;">City</th>
             <th style="padding: 1rem;">Type</th>
-            <th style="padding: 1rem;">Status</th>
             <th style="padding: 1rem;">Population</th>
             <th style="padding: 1rem;">Area</th>
             <th style="padding: 1rem;">Special</th>
@@ -56,7 +74,6 @@
                   {{ c.type }}
                 </span>
               </td>
-              <td style="padding: 1rem; text-align: center;">{{ c.status }}</td>
               <td style="padding: 1rem; text-align: center;">{{ c.population|floatformat:0 }}</td>
               <td style="padding: 1rem; text-align: center;">{{ c.area|floatformat:1 }} km²</td>
               <td style="padding: 1rem; font-size: 0.95rem;">

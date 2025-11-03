@@ -23,7 +23,6 @@
     <div class="itinerary-card" style="background: var(--bg-secondary); padding: 2rem; border-radius: var(--radius-lg); border: 2px solid var(--border);">
       <h3>Core Data</h3>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-        <div><strong>Status:</strong> {{ city.overall_status }}</div>
         <div><strong>Population:</strong> {{ city.population|default:"0" }}</div>
         <div><strong>Area:</strong> {{ city.area_km2|default:"0" }} km²</div>
       </div>

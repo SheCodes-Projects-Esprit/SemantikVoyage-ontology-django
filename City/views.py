@@ -2,11 +2,53 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from .forms import CapitalCityForm, MetropolitanCityForm, TouristicCityForm, IndustrialCityForm
-from .utils.ontology_manager import create_city, get_city, update_city, delete_city, list_cities
+from .utils.ontology_manager import create_city, get_city, update_city, delete_city, list_cities, city_sparql_update
+from core.utils.nl_to_sparql import nl_to_sparql, nl_to_sparql_update
+from core.utils.fuseki import sparql_query
 
 def city_list(request):
     cities = list_cities()
     return render(request, "core/city/city_list.html", {"cities": cities})
+
+
+def city_ai_query(request):
+    """Accept a natural-language command, generate SPARQL, execute, and render results on the list page."""
+    if request.method != 'POST':
+        return redirect('city:list')
+
+    user_text = (request.POST.get('q') or '').strip()
+    if not user_text:
+        messages.error(request, 'Please enter a command.')
+        return redirect('city:list')
+
+    # Heuristic: choose UPDATE vs SELECT
+    lower = user_text.lower()
+    is_update = any(k in lower for k in ['add ', 'create', 'insert', 'delete', 'remove', 'update', 'modify'])
+
+    try:
+        sparql = nl_to_sparql_update(user_text) if is_update else nl_to_sparql(user_text)
+        if not sparql:
+            messages.error(request, 'Could not generate SPARQL for your command.')
+            return redirect('city:list')
+
+        if is_update:
+            # Run through City-local updater that always targets the ontology graph
+            city_sparql_update(sparql)
+            messages.success(request, 'Update executed successfully.')
+            return redirect('city:list')
+        else:
+            data = sparql_query(sparql)
+            bindings = data.get('results', {}).get('bindings', [])
+            cities = list_cities()
+            return render(request, 'core/city/city_list.html', {
+                'cities': cities,
+                'ai_query': user_text,
+                'ai_sparql': sparql,
+                'ai_results': bindings,
+            })
+    except Exception as e:
+        messages.error(request, f"AI/SPARQL error: {e}")
+        return redirect('city:list')
 
 def city_detail(request, name):
     city = get_city(name)

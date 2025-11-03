@@ -1,0 +1,90 @@
+{% extends 'core/layout/_base.html' %}
+{% block title %}Companies - TRANSPERSO{% endblock %}
+
+{% block body %}
+  {% include 'core/partials/_navbar.html' %}
+  <div class="container" style="max-width: 1100px; margin: 60px auto;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 2rem;">
+      <div>
+        <h2>All Companies</h2>
+        <p>RDF Triplestore – Name-based</p>
+      </div>
+      <div style="display: flex; gap: 1rem;">
+        <a href="{% url 'company:create' %}?type=Bus" class="cta-hero">Bus</a>
+        <a href="{% url 'company:create' %}?type=Metro" class="cta-hero">Metro</a>
+        <a href="{% url 'company:create' %}?type=Taxi" class="cta-hero">Taxi</a>
+        <a href="{% url 'company:create' %}?type=BikeSharing" class="cta-hero">Bike Sharing</a>
+      </div>
+    </div>
+
+    {% if messages %}
+      <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+          <p style="padding: .9rem 1.2rem; border-radius: 10px; font-weight: 600; margin: .5rem 0;
+                    {% if message.tags == 'error' %}background:#fee2e2; border:1px solid #fecaca; color:#991b1b;
+                    {% elif message.tags == 'warning' %}background:#fef3c7; border:1px solid #fde68a; color:#92400e;
+                    {% else %}background:#ecfeff; border:1px solid #a5f3fc; color:#155e75;{% endif %}">
+            {{ message }}
+          </p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if companies %}
+      <table style="width: 100%; table-layout: fixed; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+        <thead style="background: #1e293b; color: white;">
+          <tr>
+            <th style="padding: 1rem; text-align: left;">Company</th>
+            <th style="padding: 1rem;">Type</th>
+            <th style="padding: 1rem;">Employees</th>
+            <th style="padding: 1rem;">Founded</th>
+            <th style="padding: 1rem;">Special</th>
+            <th style="padding: 1rem;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in companies %}
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 1rem; font-weight: 600; font-size: 1.05rem;">{{ c.name }}</td>
+              <td style="padding: 1rem; text-align: center;">
+                <span style="padding: 0.4rem 1rem; border-radius: 20px; font-size: 13px; font-weight: 600;
+                  background: {% if c.type == 'Bus' %}#dbeafe{% elif c.type == 'Metro' %}#d1fae5{% elif c.type == 'Taxi' %}#fef3c7{% elif c.type == 'BikeSharing' %}#fee2e2{% else %}#e5e7eb{% endif %};
+                  color: {% if c.type == 'Bus' %}#1e40af{% elif c.type == 'Metro' %}#065f46{% elif c.type == 'Taxi' %}#92400e{% elif c.type == 'BikeSharing' %}#991b1b{% else %}#374151{% endif %};">
+                  {{ c.type|default:"—" }}
+                </span>
+              </td>
+              <td style="padding: 1rem; text-align: center;">{{ c.employees|default:"0" }}</td>
+              <td style="padding: 1rem; text-align: center;">{{ c.year|default:"—" }}</td>
+              <td style="padding: 1rem; text-align: center;">
+                {% if c.type == 'Bus' %}
+                  Bus Lines: {{ c.busLines|default:"?" }}
+                {% elif c.type == 'Metro' %}
+                  Metro Lines: {{ c.metroLines|default:"?" }}
+                {% elif c.type == 'Taxi' %}
+                  Vehicles: {{ c.vehicles|default:"?" }}
+                {% elif c.type == 'BikeSharing' %}
+                  Stations: {{ c.stations|default:"?" }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td style="padding: 1rem; text-align: center;">
+                <div style="display:inline-flex; gap: .5rem; align-items:center; flex-wrap:wrap; justify-content:center;">
+                  <a href="{% url 'company:detail' c.name %}" class="cta-ghost" style="padding: .35rem .75rem;">View</a>
+                  <a href="{% url 'company:update' c.name %}" style="display:inline-block; padding:.35rem .5rem; color:#1e40af; text-decoration:underline;">Edit</a>
+                  <a href="{% url 'company:delete' c.name %}" style="display:inline-block; padding:.35rem .5rem; border:1px solid #ef4444; border-radius:8px; color:#ef4444;">Delete</a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div style="text-align: center; padding: 5rem; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px;">
+        <h3>No companies yet</h3>
+        <p>Create your first company!</p>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
+

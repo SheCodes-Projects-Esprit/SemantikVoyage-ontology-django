@@ -1,7 +1,7 @@
 {% extends 'core/layout/_base.html' %}
 {% load static %}
 
-{% block title %}{% if is_update %}Update{% else %}Create{% endif %} {{ type }} City{% endblock %}
+{% block title %}{% if is_update %}Update{% else %}Create{% endif %} Company{% endblock %}
 
 {% block body %}
   {% include 'core/partials/_navbar.html' %}
@@ -18,7 +18,7 @@
         {% endfor %}
       </div>
     {% endif %}
-    <h2>{% if is_update %}Update{% else %}Create{% endif %} {{ type }} City</h2>
+    <h2>{% if is_update %}Update{% else %}Create{% endif %} Company</h2>
     <p>Storing in RDF Triplestore (aligned to ontology)</p>
 
     <form method="post" style="background: var(--bg-secondary); padding: 2.5rem; border-radius: var(--radius-lg); border: 2px solid var(--border);">
@@ -36,9 +36,9 @@
 
       <div style="display: flex; gap: 1rem; margin-top: 2rem;">
         <button type="submit" class="cta-btn">
-          {% if is_update %}Update{% else %}Create{% endif %} City
+          {% if is_update %}Update{% else %}Create{% endif %} Company
         </button>
-        <a href="{% if is_update %}{% url 'city:detail' name %}{% else %}{% url 'city:list' %}{% endif %}" class="cta-ghost">Cancel</a>
+        <a href="{% if is_update %}{% url 'company:detail' name %}{% else %}{% url 'company:list' %}{% endif %}" class="cta-ghost">Cancel</a>
       </div>
     </form>
   </div>
@@ -49,5 +49,10 @@
 <style>
   input, select { width: 100%; padding: 0.9rem; border: 2px solid var(--border); border-radius: var(--radius); }
   input:focus, select:focus { border-color: var(--primary); }
+  .form-control { width: 100%; padding: 0.9rem; border: 2px solid var(--border); border-radius: var(--radius); }
+  .form-check-input { width: 1.25rem; height: 1.25rem; }
+  textarea.form-control { min-height: 120px; }
+  select.form-control { background: white; }
 </style>
 {% endblock %}
+

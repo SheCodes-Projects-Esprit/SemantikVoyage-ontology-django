@@ -1,8 +1,7 @@
 # city/utils/ontology_manager.py
 import time
-import traceback
-from django.conf import settings
-from core.utils.fuseki import sparql_query, sparql_update
+from rdflib import Graph
+from SPARQLWrapper import SPARQLWrapper, JSON, POST, URLENCODED
 import requests
 
 SPARQL_PREFIXES = """
@@ -16,15 +15,83 @@ NS = "http://www.transport-ontology.org/travel#"
 FUSEKI_QUERY_URL = "http://localhost:3030/transport_db/query"
 FUSEKI_UPDATE_URL = "http://localhost:3030/transport_db/update"
 
-def _run_sparql(query, timeout=10):
+
+def _run_query(query: str):
+    sw = SPARQLWrapper(FUSEKI_QUERY_URL)
+    sw.setReturnFormat(JSON)
+    sw.setMethod('POST')
+    sw.setRequestMethod(URLENCODED)
+    sw.setQuery(SPARQL_PREFIXES + query)
+    return sw.query().convert()
+
+
+def _run_query_all_graphs(query: str):
+    """Execute a SPARQL SELECT across ALL graphs (no default-graph-uri).
+    This mimics Fuseki UI behavior and ensures we see triples inserted into a named graph.
+    """
     try:
         headers = {'Accept': 'application/sparql-results+json'}
-        resp = requests.get(FUSEKI_QUERY_URL, params={'query': query}, headers=headers, timeout=timeout)
+        resp = requests.get(FUSEKI_QUERY_URL, params={'query': SPARQL_PREFIXES + query}, headers=headers, timeout=15)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
-        print(f"_run_sparql failed: {e}")
-        return {}
+        print(f"[city/_run_query_all_graphs] HTTP query failed: {e}")
+        return {"results": {"bindings": []}}
+
+
+def _run_update(update: str):
+    sw = SPARQLWrapper(FUSEKI_UPDATE_URL)
+    sw.setMethod(POST)
+    sw.setRequestMethod(URLENCODED)
+    sw.setQuery(SPARQL_PREFIXES + update)
+    sw.query()
+
+
+def city_sparql_update(update: str):
+    """City-scoped SPARQL UPDATE that guarantees using the ontology named graph.
+    This does NOT touch shared utils; it's only used by the City app.
+    Rules:
+      - INSERT DATA -> INSERT DATA { GRAPH <http://www.transport-ontology.org/travel> { ... } }
+      - DELETE WHERE -> WITH <graph>\nDELETE WHERE { ... }
+      - DELETE/INSERT (MODIFY) -> WITH <graph>\n<original>
+    """
+    graph_uri = "http://www.transport-ontology.org/travel"
+    text = update or ""
+    # Normalize small known typos from the LLM
+    text = text.replace('City_hasName', 'cityName')
+
+    upper = text.upper()
+    payload = None
+    if 'INSERT DATA' in upper:
+        # Inject GRAPH into the first INSERT DATA block
+        try:
+            import re
+            text = re.sub(r'INSERT\s+DATA\s*{', f'INSERT DATA {{ GRAPH <{graph_uri}> ', text, count=1, flags=re.IGNORECASE)
+        except Exception:
+            pass
+        payload = {'update': SPARQL_PREFIXES + text}
+    elif 'DELETE WHERE' in upper:
+        try:
+            import re
+            text = re.sub(r'DELETE\s+WHERE', f'WITH <{graph_uri}>\nDELETE WHERE', text, count=1, flags=re.IGNORECASE)
+        except Exception:
+            pass
+        payload = {'update': SPARQL_PREFIXES + text}
+    elif upper.strip().startswith('DELETE') and 'INSERT' in upper:
+        text = f"WITH <{graph_uri}>\n{text}"
+        payload = {'update': SPARQL_PREFIXES + text}
+    else:
+        payload = {'update': SPARQL_PREFIXES + text}
+
+    try:
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        resp = requests.post(FUSEKI_UPDATE_URL, data=payload, headers=headers, timeout=20)
+        if resp.status_code != 200:
+            raise Exception(f"Fuseki update failed: {resp.status_code} - {resp.text}")
+        return True
+    except Exception as e:
+        print(f"[city_sparql_update] Error: {e}")
+        raise
 
 def escape_sparql_string(value):
     if value is None: return ""
@@ -39,8 +106,7 @@ def create_city(data, city_type):
 
     triples = f"""
     {uri} a :{city_type}City ;
-          :cityName "{escape_sparql_string(city_name)}" ;
-          :overallStatus "{escape_sparql_string(data.get('overall_status', 'Planned'))}"
+          :cityName "{escape_sparql_string(city_name)}"
     """
 
     if data.get('population'):
@@ -71,30 +137,34 @@ def create_city(data, city_type):
 
     triples += " ."
 
-    sparql = f"PREFIX : <{NS}> INSERT DATA {{ {triples} }}"
-
-    try:
-        sparql_update(sparql)
-        time.sleep(0.5)
-        return city_name
-    except Exception as e:
-        raise Exception(f"SPARQL Error: {e}")
+    sparql = f"INSERT DATA {{ {triples} }}"
+    _run_update(sparql)
+    time.sleep(0.2)
+    return city_name
 
 def get_city(city_name):
     uri = f":city_{city_name.replace(' ', '_')}"
-    query = SPARQL_PREFIXES + f"""
-    SELECT ?prop ?val WHERE {{ {uri} ?prop ?val . }}
+    q = f"""
+    SELECT ?prop ?val WHERE {{
+      {uri} ?prop ?val .
+      FILTER(isIRI(?val) || isLiteral(?val))
+    }}
     """
-    result = _run_sparql(query)
-    bindings = result.get('results', {}).get('bindings', [])
-    if not bindings: return None
+    results = _run_query(q)
+    rows = [(b['prop']['value'], b['val']['value']) for b in results.get('results', {}).get('bindings', [])]
+    if not rows:
+            # Try search across all graphs
+        results = _run_query_all_graphs(q)
+        rows = [(b['prop']['value'], b['val']['value']) for b in results.get('results', {}).get('bindings', [])]
+        if not rows:
+            return None
 
     data = {'name': city_name}
     city_type = 'Capital'
 
-    for b in bindings:
-        prop = b['prop']['value'].split('#')[-1]
-        val = b['val']['value']
+    for prop_term, val_term in rows:
+        prop = str(prop_term).split('#')[-1]
+        val = str(val_term)
         if prop == 'type':
             if 'CapitalCity' in val: city_type = 'Capital'
             elif 'MetropolitanCity' in val: city_type = 'Metropolitan'
@@ -102,9 +172,7 @@ def get_city(city_name):
             elif 'IndustrialCity' in val: city_type = 'Industrial'
         else:
             # Normalize RDF property names to form/template field names
-            if prop == 'overallStatus':
-                data['overall_status'] = val
-            elif prop == 'area':
+            if prop == 'area':
                 data['area_km2'] = val
             elif prop == 'governmentSeat':
                 data['government_seat'] = (val.lower() == 'true')
@@ -128,17 +196,15 @@ def get_city(city_name):
                 data[prop] = val
 
     data['type'] = city_type
-    data.setdefault('overall_status', 'Active')
     return data
 
 def list_cities():
-    query = SPARQL_PREFIXES + """
-    SELECT ?s ?name ?status ?pop ?area ?type ?region
+    q = """
+    SELECT ?name ?pop ?area ?type ?region
            ?ministries ?districts ?visitors ?factories ?pollution ?hotels ?commute
     WHERE {
       ?s rdf:type/rdfs:subClassOf* :City .
       ?s :cityName ?name .
-      OPTIONAL { ?s :overallStatus ?status }
       OPTIONAL { ?s :population ?pop }
       OPTIONAL { ?s :area ?area }
       OPTIONAL { ?s :region ?region }
@@ -153,11 +219,22 @@ def list_cities():
     }
     ORDER BY ?name
     """
-    result = _run_sparql(query)
+    # Search across all graphs to include AI-inserted triples
+    results = _run_query_all_graphs(q)
     rows = []
-    for b in result.get('results', {}).get('bindings', []):
+    for b in results.get('results', {}).get('bindings', []):
         name = b['name']['value']
+        pop = b.get('pop', {}).get('value')
+        area = b.get('area', {}).get('value')
         t = b.get('type', {}).get('value', '')
+        region = b.get('region', {}).get('value')
+        ministries = b.get('ministries', {}).get('value')
+        districts = b.get('districts', {}).get('value')
+        visitors = b.get('visitors', {}).get('value')
+        factories = b.get('factories', {}).get('value')
+        pollution = b.get('pollution', {}).get('value')
+        hotels = b.get('hotels', {}).get('value')
+        commute = b.get('commute', {}).get('value')
         city_type = 'Unknown'
         if 'CapitalCity' in t: city_type = 'Capital'
         elif 'MetropolitanCity' in t: city_type = 'Metropolitan'
@@ -166,18 +243,17 @@ def list_cities():
 
         rows.append({
             "name": name,
-            "status": b.get('status', {}).get('value', 'Active'),
-            "population": b.get('pop', {}).get('value', 0),
-            "area": b.get('area', {}).get('value', 0.0),
-            "region": b.get('region', {}).get('value', ''),
+            "population": pop if pop is not None else 0,
+            "area": area if area is not None else 0.0,
+            "region": region if region is not None else '',
             "type": city_type,
-            "numberOfMinistries": b.get('ministries', {}).get('value'),
-            "numberOfDistricts": b.get('districts', {}).get('value'),
-            "annualVisitors": b.get('visitors', {}).get('value'),
-            "numberOfFactories": b.get('factories', {}).get('value'),
-            "pollutionIndex": b.get('pollution', {}).get('value'),
-            "hotelCount": b.get('hotels', {}).get('value'),
-            "averageCommuteTime": b.get('commute', {}).get('value'),
+            "numberOfMinistries": ministries,
+            "numberOfDistricts": districts,
+            "annualVisitors": visitors,
+            "numberOfFactories": factories,
+            "pollutionIndex": pollution,
+            "hotelCount": hotels,
+            "averageCommuteTime": commute,
         })
     return rows
 
@@ -187,9 +263,8 @@ def update_city(old_name, new_data):
 
 def delete_city(city_name):
     uri = f":city_{city_name.replace(' ', '_')}"
-    sparql = f"PREFIX : <{NS}> DELETE WHERE {{ {uri} ?p ?o }}"
     try:
-        sparql_update(sparql)
+        _run_update(f"DELETE WHERE {{ {uri} ?p ?o }}")
         return True
-    except:
+    except Exception:
         return False
