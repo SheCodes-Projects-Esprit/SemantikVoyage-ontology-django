@@ -68,6 +68,137 @@ def _run_update(update: str):
             pass
 
 
+def run_sparql_update(sparql_query: str):
+    """
+    Execute any SPARQL UPDATE query (DELETE, INSERT, DELETE/INSERT WHERE, etc.)
+    Handles both default graph and named graph operations.
+    """
+    import requests
+    
+    print(f"[run_sparql_update] Executing:\n{sparql_query}")
+    
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    payload = {'update': SPARQL_PREFIXES + sparql_query}
+    
+    try:
+        resp = requests.post(FUSEKI_UPDATE_URL, data=payload, headers=headers, timeout=20)
+        if resp.status_code not in [200, 204]:
+            raise Exception(f"Fuseki update failed: {resp.status_code} - {resp.text}")
+        print("[run_sparql_update] ✓ Update successful!")
+        return True
+    except Exception as e:
+        print(f"[run_sparql_update] ✗ Error: {e}")
+        raise
+
+
+def update_company_property(company_name: str, property_updates: dict):
+    """
+    Update specific properties of a company without recreating the entire entity.
+    
+    Args:
+        company_name: Name of the company to update
+        property_updates: Dict of property_name -> new_value
+                         e.g., {'employees': 5000, 'headquarters': 'Tunis'}
+    """
+    property_map = {
+        'employees': ':numberOfEmployees',
+        'year': ':foundedYear',
+        'headquarters': ':headquartersLocation',
+        'hq': ':headquartersLocation',
+        'buslines': ':numberOfBusLines',
+        'lines': ':numberOfLines',
+        'vehicles': ':numberOfVehicles',
+        'stations': ':numberOfStations',
+        'bikes': ':bikeCount',
+        'fare': ':averageFarePerKm',
+        'ticket': ':ticketPrice',
+        'trackLength': ':totalTrackLength',
+        'track': ':totalTrackLength',
+        'automation': ':automationLevel',
+        'passengers': ':dailyPassengers',
+        'app': ':hasBookingApp',
+        'eco': ':ecoFriendlyFleet',
+        'electric': ':electricBikes',
+        'price': ':subscriptionPrice',
+        'bugage': ':averageBusAge',
+        'age': ':averageBusAge',
+    }
+    
+    uri = f":company_{company_name.replace(' ', '_')}"
+    
+    delete_clauses = []
+    insert_clauses = []
+    
+    for prop_key, new_value in property_updates.items():
+        rdf_prop = property_map.get(prop_key.lower())
+        
+        if not rdf_prop:
+            # Try partial match
+            for key, val in property_map.items():
+                if key in prop_key.lower() or prop_key.lower() in key:
+                    rdf_prop = val
+                    break
+        
+        if not rdf_prop:
+            print(f"[WARNING] Unknown property: {prop_key}")
+            continue
+        
+        # Format value based on type
+        if isinstance(new_value, bool) or str(new_value).lower() in ['true', 'false']:
+            formatted_value = str(new_value).lower()
+        elif isinstance(new_value, (int, float)):
+            formatted_value = str(new_value)
+        elif str(new_value).replace('.', '').replace('-', '').isdigit():
+            formatted_value = str(new_value)
+        else:
+            formatted_value = f'"{escape_sparql_string(str(new_value))}"'
+        
+        delete_clauses.append(f"    {uri} {rdf_prop} ?old_{prop_key} .")
+        insert_clauses.append(f"    {uri} {rdf_prop} {formatted_value} .")
+    
+    if not delete_clauses:
+        raise ValueError("No valid properties to update")
+    
+    # Build the SPARQL update for NAMED graph
+    sparql = f"""
+WITH <{GRAPH_URI}>
+DELETE {{
+{chr(10).join(delete_clauses)}
+}}
+INSERT {{
+{chr(10).join(insert_clauses)}
+}}
+WHERE {{
+  {uri} a ?type .
+  {chr(10).join([f"  OPTIONAL {{ {clause} }}" for clause in delete_clauses])}
+}}
+"""
+    
+    run_sparql_update(sparql)
+    
+    # Also update in default graph if it exists there
+    sparql_default = f"""
+DELETE {{
+{chr(10).join(delete_clauses)}
+}}
+INSERT {{
+{chr(10).join(insert_clauses)}
+}}
+WHERE {{
+  {uri} a ?type .
+  {chr(10).join([f"  OPTIONAL {{ {clause} }}" for clause in delete_clauses])}
+}}
+"""
+    
+    try:
+        run_sparql_update(sparql_default)
+    except:
+        pass  # Ignore if not in default graph
+    
+    return True
+
+
+
 def company_sparql_update(triples: str):
     """
     Company-scoped SPARQL UPDATE that guarantees using the ontology named graph.
