@@ -29,6 +29,8 @@ def city_ai_query(request):
         # Lightweight deterministic parser for common patterns to avoid LLM stickiness
         import re
         name_match = re.search(r"name\s*=\s*['\"]?([\w\-\s]+)['\"]?", user_text, flags=re.IGNORECASE)
+        
+        # Generate SPARQL first (for display purposes)
         if not is_update and name_match:
             target = name_match.group(1).strip()
             sparql = (
@@ -43,6 +45,7 @@ def city_ai_query(request):
             )
         else:
             sparql = city_nl_to_sparql_update(user_text) if is_update else city_nl_to_sparql(user_text)
+        
         if not sparql:
             messages.error(request, 'Could not generate SPARQL for your command.')
             return redirect('city:list')
@@ -62,24 +65,37 @@ def city_ai_query(request):
                     'industrial': 'IndustrialCity',
                 }
                 subclass = type_map.get(tword, 'City')
+                
+                # Generate SPARQL for display
+                uri = f":city_{name_val.replace(' ', '_')}"
+                sparql = f"""PREFIX : <http://www.transport-ontology.org/travel#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+INSERT DATA {{
+  GRAPH <http://www.transport-ontology.org/travel> {{
+    {uri} a :{subclass} ;
+          :cityName "{name_val}" .
+  }}
+}}"""
+                
                 # Use existing create_city util for reliability
                 try:
                     create_city({'name': name_val}, subclass.replace('City',''))
                 except Exception:
                     # fallback to direct SPARQL if util fails
-                    uri = f":city_{name_val.replace(' ', '_')}"
-                    sparql = (
-                        f"PREFIX : <http://www.transport-ontology.org/travel#>\n"
-                        f"INSERT DATA {{ GRAPH <http://www.transport-ontology.org/travel> {{\n"
-                        f"  {uri} a :{subclass} ; :cityName \"{name_val}\" .\n"
-                        f"}} }}\n"
-                    )
                     city_sparql_update(sparql)
                 # Remove any legacy duplicates created by previous AI patterns
                 cleanup_city_duplicates(name_val)
                 added = True
                 messages.success(request, f"✅ City '{name_val}' created!")
-                return redirect('city:list')
+                
+                # Return with SPARQL displayed
+                cities = list_cities()
+                return render(request, 'core/city/city_list.html', {
+                    'cities': cities,
+                    'ai_query': user_text,
+                    'ai_sparql': sparql,
+                })
             
             # Deterministic DELETE handler: Enhanced to catch both formats
             if not added:
@@ -98,11 +114,30 @@ def city_ai_query(request):
                         messages.error(request, f"❌ Invalid city name '{targ}'. Please specify a valid city name.")
                         return redirect('city:list')
                     
+                    # Generate SPARQL for display
+                    uri = f":city_{targ.replace(' ', '_')}"
+                    sparql = f"""PREFIX : <http://www.transport-ontology.org/travel#>
+
+DELETE WHERE {{
+  {uri} ?p ?o
+}}
+
+WITH <http://www.transport-ontology.org/travel>
+DELETE WHERE {{
+  {uri} ?p ?o
+}}"""
+                    
                     if delete_city_by_name(targ):
                         messages.success(request, f"✅ City '{targ}' deleted successfully!")
                     else:
                         messages.warning(request, f"⚠️ No city named '{targ}' found to delete.")
-                    return redirect('city:list')
+                    
+                    cities = list_cities()
+                    return render(request, 'core/city/city_list.html', {
+                        'cities': cities,
+                        'ai_query': user_text,
+                        'ai_sparql': sparql,
+                    })
             
             # Deterministic UPDATE handler with validation
             if not added:
@@ -205,16 +240,78 @@ def city_ai_query(request):
                     if 'type' not in new_data:
                         new_data['type'] = existing.get('type', 'Capital')
                     
+                    # Generate SPARQL for display
+                    uri = f":city_{old.replace(' ', '_')}"
+                    del_lines = []
+                    ins_lines = []
+                    
+                    prop_map = {
+                        'population': ':population',
+                        'area_km2': ':area',
+                        'ministries': ':numberOfMinistries',
+                        'districts': ':numberOfDistricts',
+                        'annual_visitors': ':annualVisitors',
+                        'factories': ':numberOfFactories',
+                        'pollution_index': ':pollutionIndex',
+                        'hotels': ':hotelCount',
+                        'commute_minutes': ':averageCommuteTime',
+                    }
+                    
+                    for k, v in new_data.items():
+                        if k == 'name' and v == old:
+                            continue
+                        if k == 'type':
+                            continue
+                        
+                        rdf_prop = prop_map.get(k, f":{k}")
+                        
+                        # Format value
+                        if isinstance(v, bool) or str(v).lower() in ['true', 'false']:
+                            fmt_val = str(v).lower()
+                        elif str(v).replace('.', '').replace('-', '').isdigit():
+                            fmt_val = str(v)
+                        else:
+                            fmt_val = f'"{v}"'
+                        
+                        del_lines.append(f"    {uri} {rdf_prop} ?old_{k} .")
+                        ins_lines.append(f"    {uri} {rdf_prop} {fmt_val} .")
+                    
+                    sparql = f"""PREFIX : <http://www.transport-ontology.org/travel#>
+
+WITH <http://www.transport-ontology.org/travel>
+DELETE {{
+{chr(10).join(del_lines)}
+}}
+INSERT {{
+{chr(10).join(ins_lines)}
+}}
+WHERE {{
+  {uri} a ?type .
+  {chr(10).join([f"  OPTIONAL {{ {line} }}" for line in del_lines])}
+}}"""
+                    
                     update_city(old, new_data)
                     cleanup_city_duplicates(new_data['name'])
                     messages.success(request, f"✅ City '{old}' updated successfully!")
-                    return redirect('city:list')
+                    
+                    cities = list_cities()
+                    return render(request, 'core/city/city_list.html', {
+                        'cities': cities,
+                        'ai_query': user_text,
+                        'ai_sparql': sparql,
+                    })
             
             # Fallback to LLM-generated SPARQL for other update patterns
             if not added:
                 city_sparql_update(sparql)
                 messages.success(request, '✅ Update executed successfully.')
-                return redirect('city:list')
+                
+                cities = list_cities()
+                return render(request, 'core/city/city_list.html', {
+                    'cities': cities,
+                    'ai_query': user_text,
+                    'ai_sparql': sparql,
+                })
         else:
             # IMPORTANT: query across ALL graphs so we see ontology + AI + form-created cities
             data = query_all_graphs(sparql)
@@ -259,6 +356,7 @@ def city_ai_query(request):
                         })
             else:
                 cities = list_cities()
+            
             return render(request, 'core/city/city_list.html', {
                 'cities': cities,
                 'ai_query': user_text,
@@ -269,8 +367,13 @@ def city_ai_query(request):
             })
     except Exception as e:
         messages.error(request, f"❌ AI/SPARQL error: {e}")
-        return redirect('city:list')
-        
+        cities = list_cities()
+        return render(request, 'core/city/city_list.html', {
+            'cities': cities,
+            'ai_query': user_text if 'user_text' in locals() else '',
+            'ai_sparql': sparql if 'sparql' in locals() else '',
+        })
+               
 def city_detail(request, name):
     city = get_city(name)
     if not city:
