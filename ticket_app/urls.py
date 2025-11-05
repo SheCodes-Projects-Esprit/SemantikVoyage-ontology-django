@@ -7,5 +7,7 @@ urlpatterns = [
     path('tickets/create/', views.create_ticket, name='create_ticket'),
     path('tickets/<int:pk>/update/', views.update_ticket, name='update_ticket'),
     path('tickets/<int:pk>/delete/', views.delete_ticket, name='delete_ticket'),
+    # AI Query
+    path('tickets/ai-query/', views.ticket_ai_query, name='ticket_ai_query'),
 ]
 

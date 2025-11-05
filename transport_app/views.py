@@ -471,19 +471,28 @@ def list_persons(request):
     ontology_persons = []
     if ONTOLOGY_AVAILABLE:
         try:
-            # Utiliser les noms exacts de l'ontologie (avec accents)
+            # Rechercher dans tous les graphes (pas de restriction GRAPH)
             sparql = """
             PREFIX : <http://www.transport-ontology.org/travel#>
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
             
-            SELECT ?person ?id ?name ?age ?email ?role ?type
+            SELECT DISTINCT ?person ?id ?name ?age ?email ?role ?phoneNumber ?type
             WHERE {
-                ?person a/rdfs:subClassOf* :Person ;
-                        :hasID ?id ;
-                        :hasName ?name .
+                {
+                    ?person a/rdfs:subClassOf* :Person .
+                    OPTIONAL { ?person :hasID ?id }
+                    OPTIONAL { ?person :hasName ?name }
+                }
+                UNION
+                {
+                    ?person :hasID ?id .
+                    OPTIONAL { ?person a/rdfs:subClassOf* :Person }
+                    OPTIONAL { ?person :hasName ?name }
+                }
                 OPTIONAL { ?person :hasAge ?age }
                 OPTIONAL { ?person :hasEmail ?email }
+                OPTIONAL { ?person :hasPhoneNumber ?phoneNumber }
                 OPTIONAL { ?person :hasRole ?role }
                 BIND(
                     IF(EXISTS { ?person rdf:type :Conducteur }, "Conducteur",
@@ -492,11 +501,18 @@ def list_persons(request):
                     IF(EXISTS { ?person rdf:type :Passager }, "Passager", "Person"))))
                     AS ?type)
             }
-            LIMIT 50
+            ORDER BY ?name
+            LIMIT 100
             """
             result = sparql_query(sparql)
             ontology_persons = result.get('results', {}).get('bindings', [])
+            print(f"[DEBUG] Personnes de l'ontologie: {len(ontology_persons)} trouvées")
+            if ontology_persons:
+                print(f"[DEBUG] Première personne: {ontology_persons[0]}")
         except Exception as e:
+            print(f"[ERROR] Erreur lors de la récupération des personnes de l'ontologie: {e}")
+            import traceback
+            traceback.print_exc()
             messages.warning(request, f"Impossible de charger les données de l'ontologie: {e}")
 
     return render(request, 'list_persons.html', {
@@ -617,3 +633,14 @@ def delete_person(request, pk):
         'object': person,
         'type': 'personne'
     })
+
+
+def person_ai_query(request):
+    """Handle AI Query requests for persons"""
+    if request.method != 'POST':
+        return JsonResponse({"error": "POST required"}, status=405)
+    from .utils.ai_nl_interface import ai_generate_and_execute
+    payload = request.POST.dict()
+    q = payload.get('query') or payload.get('q') or ''
+    res = ai_generate_and_execute(q)
+    return JsonResponse(res, status=200 if 'error' not in res else 400)

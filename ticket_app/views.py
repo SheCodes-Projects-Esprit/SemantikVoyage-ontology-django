@@ -1,12 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.http import JsonResponse
 
 from .models import (
     Ticket, TicketSimple, TicketSenior, TicketÉtudiant,
     AbonnementHebdomadaire, AbonnementMensuel
 )
 from .forms import TicketForm
+from .utils.ai_nl_interface import ai_generate_and_execute
 
 # Import des services ontologie
 try:
@@ -24,39 +26,66 @@ def list_tickets(request):
     """List all tickets grouped by type"""
     tickets = []
     for subclass in Ticket.__subclasses__():
-        qs = subclass.objects.all()
+        qs = subclass.objects.all().order_by('-id')  # Plus récent en premier
         for obj in qs:
             obj.ticket_type = subclass.__name__
             tickets.append(obj)
+    
+    # Trier par ID décroissant pour avoir les plus récents en premier
+    tickets.sort(key=lambda x: x.id, reverse=True)
     
     # Query ontology for additional ticket data
     ontology_tickets = []
     if ONTOLOGY_AVAILABLE:
         try:
+            # Rechercher dans tous les graphes (pas de restriction GRAPH)
             sparql = """
             PREFIX : <http://www.transport-ontology.org/travel#>
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
             
-            SELECT ?ticket ?id ?price ?purchaseDate ?type
+            SELECT DISTINCT ?ticket ?id ?price ?purchaseDate ?type ?validityDuration ?ownerName ?validForLine
             WHERE {
-                ?ticket a/rdfs:subClassOf* :Ticket ;
-                        :hasTicketID ?id .
+                {
+                    ?ticket a/rdfs:subClassOf* :Ticket .
+                    OPTIONAL { ?ticket :hasTicketID ?id }
+                }
+                UNION
+                {
+                    ?ticket :hasTicketID ?id .
+                    OPTIONAL { ?ticket a/rdfs:subClassOf* :Ticket }
+                }
                 OPTIONAL { ?ticket :hasPrice ?price }
                 OPTIONAL { ?ticket :hasPurchaseDate ?purchaseDate }
+                OPTIONAL { ?ticket :hasValidityDuration ?validityDuration }
+                OPTIONAL { 
+                    ?ticket :ownedBy ?owner .
+                    ?owner :hasName ?ownerName .
+                }
+                OPTIONAL { 
+                    ?ticket :validFor ?transport .
+                    ?transport :Transport_hasLineNumber ?validForLine .
+                }
                 BIND(
                     IF(EXISTS { ?ticket rdf:type :TicketSimple }, "TicketSimple",
                     IF(EXISTS { ?ticket rdf:type :TicketSenior }, "TicketSenior",
-                    IF(EXISTS { ?ticket rdf:type :TicketEtudiant }, "TicketEtudiant",
+                    IF(EXISTS { ?ticket rdf:type :TicketÉtudiant }, "TicketÉtudiant",
                     IF(EXISTS { ?ticket rdf:type :AbonnementHebdomadaire }, "AbonnementHebdomadaire",
                     IF(EXISTS { ?ticket rdf:type :AbonnementMensuel }, "AbonnementMensuel", "Ticket")))))
                     AS ?type)
             }
-            LIMIT 50
+            ORDER BY ?id
+            LIMIT 100
             """
             result = sparql_query(sparql)
             ontology_tickets = result.get('results', {}).get('bindings', [])
+            print(f"[DEBUG] Tickets de l'ontologie: {len(ontology_tickets)} trouvés")
+            if ontology_tickets:
+                print(f"[DEBUG] Premier ticket: {ontology_tickets[0]}")
         except Exception as e:
+            print(f"[ERROR] Erreur lors de la récupération des tickets de l'ontologie: {e}")
+            import traceback
+            traceback.print_exc()
             messages.warning(request, f"Impossible de charger les données de l'ontologie: {e}")
 
     return render(request, 'ticket_app/list_tickets.html', {
@@ -159,4 +188,14 @@ def delete_ticket(request, pk):
         'object': ticket,
         'type': 'ticket'
     })
+
+
+def ticket_ai_query(request):
+    """Handle AI Query requests for tickets"""
+    if request.method != 'POST':
+        return JsonResponse({"error": "POST required"}, status=405)
+    payload = request.POST.dict()
+    q = payload.get('query') or payload.get('q') or ''
+    res = ai_generate_and_execute(q)
+    return JsonResponse(res, status=200 if 'error' not in res else 400)
 

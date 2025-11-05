@@ -4,13 +4,60 @@
 {% block title %}{{ title|default:"Créer Ticket" }} — TRANSPERSO{% endblock %}
 
 {% block body %}
+<style>
+  .ticket-form-section .form-control,
+  .ticket-form-section .form-select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    background-color: #fff;
+    color: #1f2937;
+  }
+  
+  .ticket-form-section .form-control:focus,
+  .ticket-form-section .form-select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+  
+  .ticket-form-section .form-control::placeholder {
+    color: #9ca3af;
+  }
+  
+  .ticket-form-section .form-check-input {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.5rem;
+    cursor: pointer;
+  }
+  
+  .ticket-form-section .field-wrapper {
+    width: 100%;
+  }
+  
+  .ticket-form-section .field-wrapper input,
+  .ticket-form-section .field-wrapper select {
+    width: 100%;
+  }
+  
+  @media (max-width: 768px) {
+    .ticket-form-section .form-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
+
 <div class="hills-decoration"></div>
 {% include 'core/partials/_navbar.html' %}
 
 <section class="ticket-form-section" style="padding: 4rem 2rem;">
   <div class="form-container" style="max-width: 900px; margin: 0 auto; background: white; padding: 3rem; border-radius: 20px; box-shadow: var(--shadow-lg);">
     <h2 class="form-title" style="font-size: 2rem; margin-bottom: 1rem; text-align: center;">
-      <span class="trans">{{ title|default:"Nouveau" }}</span> <span class="perso">Ticket</span>
+      <span class="trans">{{ title|default:"Créer un" }}</span> <span class="perso">Ticket</span>
     </h2>
     <p class="form-subtitle" style="text-align: center; color: #64748b; margin-bottom: 2rem;">Remplissez les informations du ticket.</p>
 
