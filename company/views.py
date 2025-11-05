@@ -1,11 +1,10 @@
-# company/views.py
+# company/views.py - COMPLETE REPLACEMENT
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from .forms import BusCompanyForm, MetroCompanyForm, TaxiCompanyForm, BikeSharingCompanyForm
 from .utils.ontology_manager import (
     create_company, get_company, update_company, delete_company, list_companies,
-    query_all_graphs, cleanup_company_duplicates, _run_update , run_sparql_update, 
-    update_company_property
+    query_all_graphs, cleanup_company_duplicates, update_company_property, escape_sparql_string
 )
 from .utils.nl_to_sparql_company import company_nl_to_sparql, company_nl_to_sparql_update
 import re
@@ -16,13 +15,8 @@ def company_list(request):
     return render(request, "core/company/company_list.html", {"companies": companies})
 
 
-# Replace the company_ai_query function in company/views.py
-
-# Replace the company_ai_query function in company/views.py
-
-# Replace the company_ai_query function in company/views.py
-
 def company_ai_query(request):
+    """AI Query Handler - matches City's functionality exactly"""
     if request.method != 'POST':
         return redirect('company:list')
 
@@ -32,20 +26,28 @@ def company_ai_query(request):
         return redirect('company:list')
 
     lower = user_text.lower()
-    is_update = any(k in lower for k in ['add ', 'create', 'insert', 'delete', 'remove', 'update', 'modify', 'change', 'set'])
+    is_update = any(k in lower for k in ['add', 'create', 'insert', 'delete', 'remove', 'update', 'modify', 'set'])
 
     try:
-        import re
-        
-        # === UPDATE MODE ===
+        # ═══════════════════════════════════════════════════════════
+        # UPDATE MODE (CREATE/UPDATE/DELETE)
+        # ═══════════════════════════════════════════════════════════
         if is_update:
             generated_sparql = ""
             
-            # 1. Deterministic ADD handler: "Add <type> company <name>"
-            m = re.search(r"add\s+(bus|metro|taxi|bikesharing|bike\s*sharing)?\s*company\s+([\w\-\s]+)", user_text, flags=re.IGNORECASE)
+            # ────────────────────────────────────────────────────────
+            # 1. ADD/CREATE HANDLER
+            # ────────────────────────────────────────────────────────
+            # Pattern: "Add bus company SOTRA" or "Create metro company RATP"
+            m = re.search(
+                r"(?:add|create)\s+(bus|metro|taxi|bike\s*sharing|bikesharing)?\s*company\s+([\w\-\s]+)",
+                user_text,
+                flags=re.IGNORECASE
+            )
             if m:
                 tword = (m.group(1) or '').strip().lower().replace(' ', '')
                 name_val = m.group(2).strip()
+                
                 type_map = {
                     'bus': 'BusCompany',
                     'metro': 'MetroCompany',
@@ -54,26 +56,25 @@ def company_ai_query(request):
                 }
                 subclass = type_map.get(tword, 'Company')
                 
+                # Generate SPARQL for display
                 uri = f":company_{name_val.replace(' ', '_')}"
-                triples = f'{uri} a :{subclass} ;\n  :companyName "{name_val}" .'
                 generated_sparql = f"""PREFIX : <http://www.transport-ontology.org/travel#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 INSERT DATA {{
   GRAPH <http://www.transport-ontology.org/travel> {{
-    {triples}
+    {uri} a :{subclass} ;
+          :companyName "{escape_sparql_string(name_val)}" .
   }}
 }}"""
                 
                 try:
                     create_company({'name': name_val, 'type': subclass})
                     cleanup_company_duplicates(name_val)
-                    messages.success(request, f"Company '{name_val}' added!")
+                    messages.success(request, f"✅ Company '{name_val}' created successfully!")
                 except Exception as e:
-                    from .utils.ontology_manager import company_sparql_update
-                    company_sparql_update(triples)
-                    cleanup_company_duplicates(name_val)
-                    messages.success(request, f"Company '{name_val}' added!")
+                    messages.error(request, f"❌ Creation failed: {e}")
+                    return redirect('company:list')
                 
                 import time
                 time.sleep(0.3)
@@ -82,116 +83,166 @@ INSERT DATA {{
                     'companies': companies,
                     'ai_query': user_text,
                     'ai_sparql': generated_sparql,
-                    'ai_message': f"Added '{name_val}'"
                 })
             
-            # 2. UPDATE handler: "Update <name> set <property>=<value>"
-            # Pattern: "Update SOTRA set employees=5000" or "Update SOTRA set employees=5000, headquarters=Tunis"
-            update_match = re.search(r"update\s+([\w\-\s]+?)\s+set\s+(.+)", user_text, flags=re.IGNORECASE)
-            if update_match:
-                company_name = update_match.group(1).strip()
-                set_clause = update_match.group(2).strip()
-                
+            # ────────────────────────────────────────────────────────
+            # 2. UPDATE HANDLER
+            # ────────────────────────────────────────────────────────
+            # Enhanced patterns:
+            # - "Update SOTRA set employees=5000"
+            # - "Update SOTRA set employees=5000, headquarters=Tunis"
+            # - "Update company where name = SOTRA set employees=5000"
+            
+            update_match1 = re.search(
+                r"update\s+([\w\-\s]+?)\s+set\s+(.+)",
+                user_text,
+                flags=re.IGNORECASE
+            )
+            update_match2 = re.search(
+                r"update\s+company\s+where\s+name\s*=\s*['\"]?([\w\-\s]+)['\"]?\s+set\s+(.+)",
+                user_text,
+                flags=re.IGNORECASE
+            )
+            
+            company_name = None
+            set_clause = None
+            
+            if update_match2:
+                company_name = update_match2.group(1).strip()
+                set_clause = update_match2.group(2).strip()
+            elif update_match1:
+                candidate = update_match1.group(1).strip()
+                # Exclude keywords
+                if candidate.lower() not in ['company', 'where', 'name', 'set']:
+                    company_name = candidate
+                    set_clause = update_match1.group(2).strip()
+            
+            if company_name and set_clause:
                 # Check if company exists
                 company = get_company(company_name)
                 if not company:
-                    messages.error(request, f"Company '{company_name}' not found.")
+                    messages.error(request, f"❌ Company '{company_name}' not found in RDF store.")
                     return redirect('company:list')
                 
-                # Parse property=value pairs
+                # VALID PROPERTIES MAP
                 property_map = {
                     'employees': 'employees',
+                    'numberofemployees': 'employees',
                     'year': 'year',
+                    'foundedyear': 'year',
                     'headquarters': 'headquarters',
-                    'hq': 'hq',
+                    'hq': 'headquarters',
+                    'headquarterslocation': 'headquarters',
                     'buslines': 'buslines',
+                    'numberofbuslines': 'buslines',
                     'lines': 'lines',
+                    'numberoflines': 'lines',
                     'vehicles': 'vehicles',
+                    'numberofvehicles': 'vehicles',
                     'stations': 'stations',
+                    'numberofstations': 'stations',
                     'bikes': 'bikes',
+                    'bikecount': 'bikes',
                     'fare': 'fare',
+                    'averagefarepe rkm': 'fare',
                     'ticket': 'ticket',
+                    'ticketprice': 'ticket',
                     'tracklength': 'trackLength',
                     'track': 'track',
+                    'totaltracklength': 'track',
                     'automation': 'automation',
+                    'automationlevel': 'automation',
                     'passengers': 'passengers',
+                    'dailypassengers': 'passengers',
                     'app': 'app',
+                    'bookingapp': 'app',
+                    'hasbookingapp': 'app',
                     'eco': 'eco',
+                    'ecofriendlyfleet': 'eco',
                     'electric': 'electric',
+                    'electricbikes': 'electric',
                     'price': 'price',
+                    'subscriptionprice': 'price',
                     'bugage': 'bugage',
                     'age': 'age',
+                    'averagebugage': 'age',
                 }
                 
-                # Parse multiple assignments: "prop1=val1, prop2=val2"
-                assignments = [a.strip() for a in set_clause.split(',')]
+                # Parse assignments: "prop1=val1, prop2=val2" or "prop1=val1 and prop2=val2"
+                assignments = re.split(r',|\band\b', set_clause, flags=re.IGNORECASE)
                 
                 property_updates = {}
+                invalid_props = []
                 
                 for assignment in assignments:
-                    match = re.match(r"(\w+)\s*=\s*(.+)", assignment)
+                    match = re.match(r"(\w+)\s*[=:]\s*(.+)", assignment.strip())
                     if not match:
                         continue
                     
-                    prop_name = match.group(1).strip().lower()
+                    prop_name = match.group(1).strip().lower().replace('_', '').replace(' ', '')
                     prop_value = match.group(2).strip().strip('"\'')
                     
-                    # Map property name
-                    mapped_prop = property_map.get(prop_name, prop_name)
+                    # Validate property
+                    if prop_name not in property_map:
+                        invalid_props.append(prop_name)
+                        continue
+                    
+                    mapped_prop = property_map[prop_name]
                     property_updates[mapped_prop] = prop_value
                 
-                if not property_updates:
-                    messages.error(request, "No valid properties to update.")
+                # Show error if invalid properties found
+                if invalid_props:
+                    valid_list = ', '.join(sorted(set(['employees', 'year', 'headquarters', 'buslines', 'lines', 'vehicles', 'stations', 'bikes', 'fare', 'ticket', 'track', 'automation', 'passengers', 'app', 'eco', 'electric', 'price', 'age'])))
+                    messages.error(request, f"❌ Invalid property: '{', '.join(invalid_props)}'. Valid properties: {valid_list}")
                     return redirect('company:list')
                 
-                # Use the new update function
-                from .utils.ontology_manager import update_company_property, escape_sparql_string
-                try:
-                    print(f"[DEBUG] Updating company: {company_name}")
-                    print(f"[DEBUG] Properties: {property_updates}")
+                if not property_updates:
+                    messages.error(request, "❌ No valid properties found to update.")
+                    return redirect('company:list')
+                
+                # Generate SPARQL for display
+                rdf_prop_map = {
+                    'employees': ':numberOfEmployees',
+                    'year': ':foundedYear',
+                    'headquarters': ':headquartersLocation',
+                    'buslines': ':numberOfBusLines',
+                    'lines': ':numberOfLines',
+                    'vehicles': ':numberOfVehicles',
+                    'stations': ':numberOfStations',
+                    'bikes': ':bikeCount',
+                    'fare': ':averageFarePerKm',
+                    'ticket': ':ticketPrice',
+                    'trackLength': ':totalTrackLength',
+                    'track': ':totalTrackLength',
+                    'automation': ':automationLevel',
+                    'passengers': ':dailyPassengers',
+                    'app': ':hasBookingApp',
+                    'eco': ':ecoFriendlyFleet',
+                    'electric': ':electricBikes',
+                    'price': ':subscriptionPrice',
+                    'bugage': ':averageBusAge',
+                    'age': ':averageBusAge',
+                }
+                
+                uri = f":company_{company_name.replace(' ', '_')}"
+                del_lines = []
+                ins_lines = []
+                
+                for prop, val in property_updates.items():
+                    rdf_prop = rdf_prop_map.get(prop.lower(), f":{prop}")
                     
-                    # Generate SPARQL for display
-                    rdf_prop_map = {
-                        'employees': ':numberOfEmployees',
-                        'year': ':foundedYear',
-                        'headquarters': ':headquartersLocation',
-                        'hq': ':headquartersLocation',
-                        'buslines': ':numberOfBusLines',
-                        'lines': ':numberOfLines',
-                        'vehicles': ':numberOfVehicles',
-                        'stations': ':numberOfStations',
-                        'bikes': ':bikeCount',
-                        'fare': ':averageFarePerKm',
-                        'ticket': ':ticketPrice',
-                        'trackLength': ':totalTrackLength',
-                        'track': ':totalTrackLength',
-                        'automation': ':automationLevel',
-                        'passengers': ':dailyPassengers',
-                        'app': ':hasBookingApp',
-                        'eco': ':ecoFriendlyFleet',
-                        'electric': ':electricBikes',
-                        'price': ':subscriptionPrice',
-                        'bugage': ':averageBusAge',
-                        'age': ':averageBusAge',
-                    }
+                    # Format value based on type
+                    if str(val).lower() in ['true', 'false']:
+                        fmt_val = str(val).lower()
+                    elif str(val).replace('.', '').replace('-', '').isdigit():
+                        fmt_val = str(val)
+                    else:
+                        fmt_val = f'"{escape_sparql_string(str(val))}"'
                     
-                    uri = f":company_{company_name.replace(' ', '_')}"
-                    del_lines = []
-                    ins_lines = []
-                    
-                    for prop, val in property_updates.items():
-                        rdf_prop = rdf_prop_map.get(prop.lower(), f":{prop}")
-                        if str(val).lower() in ['true', 'false']:
-                            fmt_val = str(val).lower()
-                        elif str(val).replace('.', '').replace('-', '').isdigit():
-                            fmt_val = str(val)
-                        else:
-                            fmt_val = f'"{escape_sparql_string(str(val))}"'
-                        
-                        del_lines.append(f"    {uri} {rdf_prop} ?old_{prop} .")
-                        ins_lines.append(f"    {uri} {rdf_prop} {fmt_val} .")
-                    
-                    generated_sparql = f"""PREFIX : <http://www.transport-ontology.org/travel#>
+                    del_lines.append(f"    {uri} {rdf_prop} ?old_{prop} .")
+                    ins_lines.append(f"    {uri} {rdf_prop} {fmt_val} .")
+                
+                generated_sparql = f"""PREFIX : <http://www.transport-ontology.org/travel#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 WITH <http://www.transport-ontology.org/travel>
@@ -205,14 +256,12 @@ WHERE {{
   {uri} a ?type .
   {chr(10).join([f"  OPTIONAL {{ {line} }}" for line in del_lines])}
 }}"""
-                    
+                
+                try:
                     update_company_property(company_name, property_updates)
-                    messages.success(request, f"Company '{company_name}' updated!")
+                    messages.success(request, f"✅ Company '{company_name}' updated successfully!")
                 except Exception as e:
-                    print(f"[ERROR] Update failed: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    messages.error(request, f"Update failed: {e}")
+                    messages.error(request, f"❌ Update failed: {e}")
                     return redirect('company:list')
                 
                 import time
@@ -222,37 +271,65 @@ WHERE {{
                     'companies': companies,
                     'ai_query': user_text,
                     'ai_sparql': generated_sparql,
-                    'ai_message': f"Updated '{company_name}'"
                 })
             
-            # 3. Deterministic DELETE handler
-            mdel1 = re.search(r"delete\s+(?:company\s+)?([a-zA-Z0-9\-\s]+)$", user_text, flags=re.IGNORECASE)
-            mdel2 = re.search(r"delete\s+company\s+where\s+name\s*=\s*['\"]?([a-zA-Z0-9\-\s]+)['\"]?", user_text, flags=re.IGNORECASE)
+            # ────────────────────────────────────────────────────────
+            # 3. DELETE HANDLER
+            # ────────────────────────────────────────────────────────
+            # Enhanced patterns:
+            # - "Delete SOTRA"
+            # - "Delete company SOTRA"
+            # - "Delete company where name = SOTRA"
+            # - "Remove company SOTRA"
+            
+            delete_match1 = re.search(
+                r"(?:delete|remove)\s+company\s+where\s+name\s*=\s*['\"]?([\w\-\s]+)['\"]?",
+                user_text,
+                flags=re.IGNORECASE
+            )
+            delete_match2 = re.search(
+                r"(?:delete|remove)\s+(?:company\s+)?([a-zA-Z0-9\-\s]+)$",
+                user_text,
+                flags=re.IGNORECASE
+            )
             
             target_name = None
-            if mdel2:
-                target_name = mdel2.group(1).strip()
-            elif mdel1:
-                candidate = mdel1.group(1).strip()
-                if candidate.lower() not in ['company', 'where', 'name', 'from']:
+            if delete_match1:
+                target_name = delete_match1.group(1).strip()
+            elif delete_match2:
+                candidate = delete_match2.group(1).strip()
+                # Prevent deleting common words accidentally
+                if candidate.lower() not in ['company', 'companies', 'all', 'everything', 'where', 'name', 'from', 'the']:
                     target_name = candidate
             
             if target_name:
+                # Check if company exists before deleting
+                company = get_company(target_name)
+                if not company:
+                    messages.warning(request, f"⚠️ No company named '{target_name}' found to delete.")
+                    return redirect('company:list')
+                
+                # Generate SPARQL for display
+                uri = f":company_{target_name.replace(' ', '_')}"
                 generated_sparql = f"""PREFIX : <http://www.transport-ontology.org/travel#>
 
 DELETE WHERE {{
-  :company_{target_name.replace(' ', '_')} ?p ?o
+  {uri} ?p ?o
 }}
 
 WITH <http://www.transport-ontology.org/travel>
 DELETE WHERE {{
-  :company_{target_name.replace(' ', '_')} ?p ?o
+  {uri} ?p ?o
 }}"""
                 
-                if delete_company(target_name):
-                    messages.success(request, f"Company '{target_name}' deleted!")
-                else:
-                    messages.warning(request, f"No company named '{target_name}' found.")
+                try:
+                    if delete_company(target_name):
+                        messages.success(request, f"✅ Company '{target_name}' deleted successfully!")
+                    else:
+                        messages.warning(request, f"⚠️ Delete operation completed, but company may not have existed.")
+                except Exception as e:
+                    messages.error(request, f"❌ Delete failed: {e}")
+                    return redirect('company:list')
                 
                 import time
                 time.sleep(0.3)
@@ -261,103 +338,73 @@ DELETE WHERE {{
                     'companies': companies,
                     'ai_query': user_text,
                     'ai_sparql': generated_sparql,
-                    'ai_message': f"Deleted '{target_name}'"
                 })
             
-            # 4. Fallback: AI-generated SPARQL
-            sparql = company_nl_to_sparql_update(user_text)
-            if sparql:
-                from .utils.ontology_manager import company_sparql_update
-                company_sparql_update(sparql)
-                generated_sparql = f"""PREFIX : <http://www.transport-ontology.org/travel#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-INSERT DATA {{
-  GRAPH <http://www.transport-ontology.org/travel> {{
-    {sparql}
-  }}
-}}"""
-                messages.success(request, 'Company updated via AI!')
-            else:
-                messages.error(request, 'Could not generate SPARQL.')
-                return redirect('company:list')
-            
-            import time
-            time.sleep(0.3)
-            companies = list_companies()
-            return render(request, 'core/company/company_list.html', {
-                'companies': companies,
-                'ai_query': user_text,
-                'ai_sparql': generated_sparql,
-                'ai_message': 'Update executed!'
-            })
-
-        # === QUERY MODE ===
+            # Fallback: couldn't parse the update command
+            messages.error(request, "❌ Could not parse your command. Please use format: 'Add/Update/Delete company ...'")
+            return redirect('company:list')
+        
+        # ═══════════════════════════════════════════════════════════
+        # QUERY MODE (SELECT)
+        # ═══════════════════════════════════════════════════════════
         else:
+            # Check for specific name search
             name_match = re.search(r"name\s*=\s*['\"]?([\w\-\s]+)['\"]?", user_text, re.IGNORECASE)
             if name_match:
                 target = name_match.group(1).strip()
                 sparql = f"""
-PREFIX : <http://www.transport-ontology.org/travel#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-SELECT ?name ?employees ?hq ?type
+SELECT ?name ?type ?employees ?year ?hq
 WHERE {{
   ?c a/rdfs:subClassOf* :Company ; :companyName ?name .
   FILTER(LCASE(?name) = "{target.lower()}")
-  OPTIONAL {{ ?c :numberOfEmployees ?employees }}
-  OPTIONAL {{ ?c :headquartersLocation ?hq }}
   OPTIONAL {{ ?c rdf:type ?type }}
+  OPTIONAL {{ ?c :numberOfEmployees ?employees }}
+  OPTIONAL {{ ?c :foundedYear ?year }}
+  OPTIONAL {{ ?c :headquartersLocation ?hq }}
 }} LIMIT 10
 """
             else:
+                # Use AI-generated SPARQL
                 sparql = company_nl_to_sparql(user_text)
 
             if not sparql:
-                messages.error(request, 'Could not generate SPARQL.')
+                messages.error(request, '❌ Could not generate SPARQL query.')
                 return redirect('company:list')
 
+            # Execute query across all graphs
             data = query_all_graphs(sparql)
             bindings = data.get('results', {}).get('bindings', [])
             
             if not bindings:
-                messages.warning(request, "No results found.")
-                return redirect('company:list')
+                messages.info(request, "ℹ️ No results found for your query.")
+                companies = list_companies()
+                return render(request, 'core/company/company_list.html', {
+                    'companies': companies,
+                    'ai_query': user_text,
+                    'ai_sparql': sparql,
+                })
 
-            vars_ = list(bindings[0].keys())
-            rows = []
+            # Extract company names and fetch full details
+            selected_names = []
             for b in bindings:
-                row = {}
-                for v in vars_:
-                    val = b.get(v, {}).get('value', '')
-                    key = v
-                    if v in ['employees', 'numberOfEmployees']: key = 'employees'
-                    elif v in ['year', 'foundedYear']: key = 'year'
-                    elif v in ['hq', 'headquartersLocation']: key = 'hq'
-                    elif v in ['vehicles', 'numberOfVehicles']: key = 'vehicles'
-                    elif v in ['fare', 'averageFarePerKm']: key = 'fare'
-                    elif v in ['busLines', 'numberOfBusLines']: key = 'busLines'
-                    elif v in ['metroLines', 'numberOfLines']: key = 'metroLines'
-                    elif v in ['stations', 'numberOfStations']: key = 'stations'
-                    elif v in ['bikes', 'totalBikes', 'bikeCount']: key = 'bikes'
-                    elif v in ['name', 'companyName']: key = 'name'
-                    elif v == 'type': key = 'type'
-                    row[key] = val
-                rows.append(row)
-
-            selected_names = [r.get('name') for r in rows if r.get('name')]
+                name = b.get('name', {}).get('value') or b.get('companyName', {}).get('value')
+                if name:
+                    selected_names.append(name)
+            
             companies = []
             for name in selected_names:
                 c = get_company(name)
                 if c:
+                    # Map to list view format
                     c['employees'] = c.get('number_of_employees')
                     c['year'] = c.get('founded_year')
                     c['hq'] = c.get('headquarters_location')
-                    c['vehicles'] = c.get('number_of_vehicles')
-                    c['fare'] = c.get('average_fare_per_km')
                     c['busLines'] = c.get('number_of_bus_lines')
                     c['metroLines'] = c.get('number_of_lines')
+                    c['vehicles'] = c.get('number_of_vehicles')
                     c['stations'] = c.get('number_of_stations')
                     c['bikes'] = c.get('bike_count')
+                    c['fare'] = c.get('average_fare_per_km')
                     c['type'] = c.get('type', 'Company').replace('Company', '')
                     companies.append(c)
 
@@ -365,20 +412,20 @@ WHERE {{
                 'companies': companies,
                 'ai_query': user_text,
                 'ai_sparql': sparql,
-                'ai_results': bindings,
-                'ai_table_vars': vars_,
-                'ai_table_rows': rows,
             })
 
     except Exception as e:
         import traceback
         print(f"[ERROR] {e}")
         print(traceback.format_exc())
-        messages.error(request, f"AI Error: {e}")
+        messages.error(request, f"❌ Error: {e}")
         return redirect('company:list')
 
 
-# ——— CRUD VIEWS (UNCHANGED) ———
+# ═══════════════════════════════════════════════════════════════════
+# CRUD VIEWS (Form-based - unchanged)
+# ═══════════════════════════════════════════════════════════════════
+
 def company_detail(request, name):
     company = get_company(name)
     if not company:
@@ -395,7 +442,10 @@ def company_create(request):
         "Taxi": ("TaxiCompany", TaxiCompanyForm),
         "BikeSharing": ("BikeSharingCompany", BikeSharingCompanyForm),
     }
-    company_type, Form = type_map.get(type_.title() if type_.lower() != 'bikesharing' else 'BikeSharing', ("BusCompany", BusCompanyForm))
+    company_type, Form = type_map.get(
+        type_.title() if type_.lower() != 'bikesharing' else 'BikeSharing',
+        ("BusCompany", BusCompanyForm)
+    )
 
     if request.method == "POST":
         form = Form(request.POST)
@@ -409,7 +459,11 @@ def company_create(request):
                 messages.error(request, str(e))
     else:
         form = Form()
-    return render(request, "core/company/company_form.html", {"form": form, "is_update": False, "type": company_type})
+    return render(request, "core/company/company_form.html", {
+        "form": form,
+        "is_update": False,
+        "type": company_type
+    })
 
 
 def company_update(request, name):
@@ -440,7 +494,12 @@ def company_update(request, name):
         init = {k: company.get(k) for k in Form.Meta.fields}
         form = Form(initial=init, original_name=name)
 
-    return render(request, "core/company/company_form.html", {"form": form, "name": name, "is_update": True, "type": company.get("type")})
+    return render(request, "core/company/company_form.html", {
+        "form": form,
+        "name": name,
+        "is_update": True,
+        "type": company.get("type")
+    })
 
 
 def company_delete(request, name):
@@ -451,13 +510,16 @@ def company_delete(request, name):
             messages.error(request, "Delete failed.")
         return redirect("company:list")
     company = get_company(name)
-    return render(request, "core/company/company_delete_confirm.html", {"company": company, "name": name})
+    return render(request, "core/company/company_delete_confirm.html", {
+        "company": company,
+        "name": name
+    })
 
-# Add this to company/views.py temporarily for debugging
 
 def company_debug(request):
-    """Debug view to see what's in each graph"""
+    """Debug view to see what's in each graph (optional - for troubleshooting)"""
     from .utils.ontology_manager import query_all_graphs, SPARQL_PREFIXES, FUSEKI_QUERY_URL
+    from django.http import JsonResponse
     import requests
     
     # Query 1: ALL companies across ALL graphs (no default-graph-uri)
@@ -507,13 +569,16 @@ def company_debug(request):
         resp3 = requests.get(FUSEKI_QUERY_URL, params={'query': SPARQL_PREFIXES + q3}, headers=headers, timeout=15)
         named_graph = resp3.json() if resp3.status_code == 200 else {"results": {"bindings": []}}
         
-        return render(request, 'core/company/debug.html', {
+        return JsonResponse({
+            'all_graphs_count': len(all_graphs.get('results', {}).get('bindings', [])),
+            'default_graph_count': len(default_graph.get('results', {}).get('bindings', [])),
+            'named_graph_count': len(named_graph.get('results', {}).get('bindings', [])),
             'all_graphs': all_graphs.get('results', {}).get('bindings', []),
             'default_graph': default_graph.get('results', {}).get('bindings', []),
             'named_graph': named_graph.get('results', {}).get('bindings', []),
         })
     except Exception as e:
-        return render(request, 'core/company/debug.html', {
+        return JsonResponse({
             'error': str(e),
             'all_graphs': [],
             'default_graph': [],

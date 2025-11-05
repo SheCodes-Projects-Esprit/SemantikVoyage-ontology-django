@@ -1,6 +1,4 @@
-# Complete replacement for company/utils/ontology_manager.py
-# This ensures ALL functions use the named graph correctly
-
+# company/utils/ontology_manager.py - CRITICAL FIX for get_company()
 import time
 from rdflib.plugins.stores.sparqlstore import SPARQLStore, SPARQLUpdateStore
 from rdflib import Graph
@@ -19,25 +17,6 @@ FUSEKI_QUERY_URL = "http://localhost:3030/transport_db/query"
 FUSEKI_UPDATE_URL = "http://localhost:3030/transport_db/update"
 
 
-def _run_query(query: str):
-    """Query default graph only (for backward compatibility)"""
-    store = SPARQLStore(FUSEKI_QUERY_URL)
-    g = Graph(store=store)
-    res = g.query(SPARQL_PREFIXES + query)
-    vars_ = [str(v) for v in res.vars]
-    bindings = []
-    for row in res:
-        b = {}
-        for i, v in enumerate(vars_):
-            term = row[i]
-            if term is None:
-                continue
-            val = str(term)
-            b[v] = {"type": "uri" if val.startswith('http') else "literal", "value": val}
-        bindings.append(b)
-    return {"results": {"bindings": bindings}}
-
-
 def query_all_graphs(sparql: str):
     """Query across ALL graphs (default + named) - preferred for reading"""
     headers = {'Accept': 'application/sparql-results+json'}
@@ -50,31 +29,8 @@ def query_all_graphs(sparql: str):
         return {"results": {"bindings": []}}
 
 
-def _run_update(update: str):
-    """Basic update to default graph (legacy, avoid using)"""
-    print(f"[DEBUG] Running SPARQL UPDATE:\n{update}")
-    store = SPARQLUpdateStore()
-    store.open((FUSEKI_QUERY_URL, FUSEKI_UPDATE_URL))
-    try:
-        store.update(update)
-        print("[SUCCESS] Update sent to Fuseki!")
-    except Exception as e:
-        print(f"[FUSEKI ERROR] {e}")
-        raise e
-    finally:
-        try:
-            store.close()
-        except:
-            pass
-
-
 def run_sparql_update(sparql_query: str):
-    """
-    Execute any SPARQL UPDATE query (DELETE, INSERT, DELETE/INSERT WHERE, etc.)
-    Handles both default graph and named graph operations.
-    """
-    import requests
-    
+    """Execute any SPARQL UPDATE query"""
     print(f"[run_sparql_update] Executing:\n{sparql_query}")
     
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
@@ -92,14 +48,7 @@ def run_sparql_update(sparql_query: str):
 
 
 def update_company_property(company_name: str, property_updates: dict):
-    """
-    Update specific properties of a company without recreating the entire entity.
-    
-    Args:
-        company_name: Name of the company to update
-        property_updates: Dict of property_name -> new_value
-                         e.g., {'employees': 5000, 'headquarters': 'Tunis'}
-    """
+    """Update specific properties of a company"""
     property_map = {
         'employees': ':numberOfEmployees',
         'year': ':foundedYear',
@@ -133,7 +82,6 @@ def update_company_property(company_name: str, property_updates: dict):
         rdf_prop = property_map.get(prop_key.lower())
         
         if not rdf_prop:
-            # Try partial match
             for key, val in property_map.items():
                 if key in prop_key.lower() or prop_key.lower() in key:
                     rdf_prop = val
@@ -143,7 +91,7 @@ def update_company_property(company_name: str, property_updates: dict):
             print(f"[WARNING] Unknown property: {prop_key}")
             continue
         
-        # Format value based on type
+        # Format value
         if isinstance(new_value, bool) or str(new_value).lower() in ['true', 'false']:
             formatted_value = str(new_value).lower()
         elif isinstance(new_value, (int, float)):
@@ -159,7 +107,7 @@ def update_company_property(company_name: str, property_updates: dict):
     if not delete_clauses:
         raise ValueError("No valid properties to update")
     
-    # Build the SPARQL update for NAMED graph
+    # Update in NAMED graph
     sparql = f"""
 WITH <{GRAPH_URI}>
 DELETE {{
@@ -176,7 +124,7 @@ WHERE {{
     
     run_sparql_update(sparql)
     
-    # Also update in default graph if it exists there
+    # Also update in default graph if exists
     sparql_default = f"""
 DELETE {{
 {chr(10).join(delete_clauses)}
@@ -193,34 +141,23 @@ WHERE {{
     try:
         run_sparql_update(sparql_default)
     except:
-        pass  # Ignore if not in default graph
+        pass
     
     return True
 
 
-
 def company_sparql_update(triples: str):
-    """
-    Company-scoped SPARQL UPDATE that guarantees using the ontology named graph.
-    Takes raw triples (without INSERT DATA wrapper) and properly formats them.
-    
-    Args:
-        triples: Raw RDF triples like ":company_X a :BusCompany ; :companyName 'X' ."
-    """
-    # Clean up any accidental wrapper keywords from LLM
+    """Insert company triples into named graph"""
     text = triples.strip()
     if 'INSERT DATA' in text.upper():
-        # Extract just the triples
         import re
         match = re.search(r'INSERT\s+DATA\s*\{(.+)\}', text, re.IGNORECASE | re.DOTALL)
         if match:
             text = match.group(1).strip()
-        # Remove GRAPH wrapper if present
         match = re.search(r'GRAPH\s*<[^>]+>\s*\{(.+)\}', text, re.IGNORECASE | re.DOTALL)
         if match:
             text = match.group(1).strip()
     
-    # Build the proper INSERT DATA with GRAPH
     sparql = f"""
 INSERT DATA {{
   GRAPH <{GRAPH_URI}> {{
@@ -231,7 +168,6 @@ INSERT DATA {{
     
     print(f"[DEBUG] Executing SPARQL:\n{sparql}")
     
-    # Use requests directly for better error messages
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     payload = {'update': SPARQL_PREFIXES + sparql}
     
@@ -252,38 +188,16 @@ def escape_sparql_string(value):
     return str(value).replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
 
 
-def _resolve_company_subject_by_name(name: str):
-    """Return a SPARQL node for the company resource that has :companyName name."""
-    sname = escape_sparql_string(name)
-    q = f"""
-    SELECT ?s ?type WHERE {{
-      ?s :companyName "{sname}" .
-      OPTIONAL {{ ?s rdf:type ?type }}
-    }} LIMIT 1
-    """
-    # Use query_all_graphs to find companies in named graph
-    res = query_all_graphs(q)
-    bindings = res.get('results', {}).get('bindings', [])
-    if not bindings:
-        return None, None
-    s_val = bindings[0].get('s', {}).get('value')
-    t_val = bindings[0].get('type', {}).get('value', '')
-    node = f"<{s_val}>" if s_val else None
-    return node, t_val
-
-
 def create_company(data):
     name = (data.get('name') or '').strip()
     if not name:
         raise ValueError("Company name is required!")
 
     uri = f":company_{name.replace(' ', '_')}"
-
-    # Note: Ontology uses subclass types for companies. If 'type' provided, set it; else default :Company
     company_type = str(data.get('type') or 'Company')
     triples = f"{uri} a :{company_type} ;\n      :companyName \"{escape_sparql_string(name)}\""
 
-    # Common properties in ontology
+    # Common properties
     if data.get('number_of_employees') not in (None, ""):
         try:
             triples += f" ;\n      :numberOfEmployees {int(data['number_of_employees'])}"
@@ -331,47 +245,83 @@ def create_company(data):
             triples += f" ;\n      :electricBikes {str(data['electric_bikes']).lower()}"
 
     triples += " ."
-
-    # Use company_sparql_update to write to named graph
     company_sparql_update(triples)
-    time.sleep(0.3)  # Give Fuseki time to index
+    time.sleep(0.3)
     return name
 
 
 def get_company(name):
-    # Try synthetic URI first across all graphs
+    """
+    CRITICAL FIX: Search for company by name using BOTH URI patterns AND direct name search
+    This handles cases where URI might not match expected pattern
+    """
+    print(f"\n[get_company] 🔍 Looking for company: '{name}'")
+    
+    # Strategy 1: Try synthetic URI pattern first (most common)
     uri = f":company_{str(name).replace(' ', '_')}"
+    print(f"[get_company] Strategy 1: Trying synthetic URI: {uri}")
+    
     q_direct = f"""
     SELECT ?prop ?val WHERE {{
-      {uri} ?prop ?val .
-      FILTER(isIRI(?val) || isLiteral(?val))
+      {{
+        {uri} ?prop ?val .
+        FILTER(isIRI(?val) || isLiteral(?val))
+      }}
+      UNION
+      {{
+        GRAPH <{GRAPH_URI}> {{
+          {uri} ?prop ?val .
+          FILTER(isIRI(?val) || isLiteral(?val))
+        }}
+      }}
     }}
     """
+    
     results = query_all_graphs(q_direct)
     rows = [(b['prop']['value'], b['val']['value']) for b in results.get('results', {}).get('bindings', [])]
     
-    # Fallback: resolve by companyName
+    # Strategy 2: If synthetic URI failed, search by companyName property
     if not rows:
-        node, t_val = _resolve_company_subject_by_name(name)
-        if not node:
-            return None
+        print(f"[get_company] Strategy 1 failed. Strategy 2: Searching by :companyName property")
+        
+        # Use BOTH namespace patterns
         q_byname = f"""
-        SELECT ?prop ?val WHERE {{
-          {node} ?prop ?val .
-          FILTER(isIRI(?val) || isLiteral(?val))
+        SELECT ?s ?prop ?val WHERE {{
+          {{
+            ?s :companyName "{escape_sparql_string(name)}" ;
+               ?prop ?val .
+            FILTER(isIRI(?val) || isLiteral(?val))
+          }}
+          UNION
+          {{
+            GRAPH <{GRAPH_URI}> {{
+              ?s :companyName "{escape_sparql_string(name)}" ;
+                 ?prop ?val .
+              FILTER(isIRI(?val) || isLiteral(?val))
+            }}
+          }}
         }}
         """
+        
         results = query_all_graphs(q_byname)
         rows = [(b['prop']['value'], b['val']['value']) for b in results.get('results', {}).get('bindings', [])]
+        
+        if rows:
+            print(f"[get_company] ✓ Found via :companyName search!")
+        else:
+            print(f"[get_company] ✗ Company '{name}' not found in RDF store")
+            return None
+    else:
+        print(f"[get_company] ✓ Found via synthetic URI!")
 
-    if not rows:
-        return None
-
+    # Parse properties
     data = {'name': name}
     ctype = 'Company'
+    
     for prop_term, val_term in rows:
         prop = str(prop_term).split('#')[-1]
         val = str(val_term)
+        
         if prop == 'type':
             if 'BusCompany' in val: ctype = 'BusCompany'
             elif 'MetroCompany' in val: ctype = 'MetroCompany'
@@ -418,20 +368,17 @@ def get_company(name):
             data['electric_bikes'] = val
         else:
             data[prop] = val
+    
     data['type'] = ctype
+    print(f"[get_company] ✅ Successfully retrieved company data: {data}")
     return data
 
 
 def list_companies():
-    """
-    List companies from BOTH default graph AND named graph
-    CRITICAL FIX: Uses full URIs to handle namespace inconsistencies
-    """
-    # Use full URIs instead of prefixes to avoid namespace issues
+    """List companies from BOTH default graph AND named graph"""
     q = """
     SELECT ?name ?type ?employees ?year ?hq ?busLines ?metroLines ?vehicles ?stations WHERE {
       {
-        # Default graph - try both namespace patterns
         ?s rdf:type/rdfs:subClassOf* :Company .
         OPTIONAL { 
           { ?s <http://www.transport-ontology.org/companyName> ?name }
@@ -477,7 +424,6 @@ def list_companies():
       }
       UNION
       {
-        # Named graph - try both namespace patterns
         GRAPH <http://www.transport-ontology.org/travel> {
           ?s rdf:type/rdfs:subClassOf* :Company .
           OPTIONAL { 
@@ -528,10 +474,9 @@ def list_companies():
     ORDER BY ?name
     """
     
-    # Use query_all_graphs (which doesn't restrict to default graph)
     results = query_all_graphs(q)
     rows = []
-    seen_names = set()  # Avoid duplicates if company exists in both graphs
+    seen_names = set()
     
     for b in results.get('results', {}).get('bindings', []):
         name = b.get('name', {}).get('value', '')
@@ -561,19 +506,14 @@ def list_companies():
 
 
 def delete_company(name):
-    """
-    Delete company - handles BOTH namespace patterns
-    Uses full URIs to avoid prefix issues
-    """
+    """Delete company - handles BOTH namespace patterns"""
     import requests
     
     escaped_name = escape_sparql_string(name)
     
-    # Search with BOTH namespace patterns using full URIs
     find_query = f"""
 SELECT ?company WHERE {{
   {{
-    # Search in default graph with both namespaces
     {{
       ?company <http://www.transport-ontology.org/companyName> "{escaped_name}" .
     }}
@@ -584,7 +524,6 @@ SELECT ?company WHERE {{
   }}
   UNION
   {{
-    # Search in named graph with both namespaces
     GRAPH <http://www.transport-ontology.org/travel> {{
       {{
         ?company <http://www.transport-ontology.org/companyName> "{escaped_name}" .
@@ -598,9 +537,8 @@ SELECT ?company WHERE {{
 }}
 """
     
-    print(f"\n[DELETE] Searching for company '{name}' with both namespace patterns...")
+    print(f"\n[DELETE] Searching for company '{name}'...")
     
-    # Query directly with requests (no prefixes to avoid confusion)
     headers = {'Accept': 'application/sparql-results+json'}
     try:
         resp = requests.get(
@@ -625,7 +563,6 @@ SELECT ?company WHERE {{
         print(f"[DELETE] ❌ No company found with name '{name}'")
         return False
     
-    # Step 2: Delete each found URI from ALL possible locations
     deleted_count = 0
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     
@@ -645,12 +582,10 @@ SELECT ?company WHERE {{
             if resp.status_code in [200, 204]:
                 print(f"[DELETE] ✓ Deleted from default graph")
                 deleted_count += 1
-            else:
-                print(f"[DELETE] Default graph delete returned: {resp.status_code}")
         except Exception as e:
             print(f"[DELETE] Default graph error: {e}")
         
-        # Delete from named graph - CRITICAL FIX
+        # Delete from named graph
         delete_named = f"""
 DELETE WHERE {{
   GRAPH <http://www.transport-ontology.org/travel> {{
@@ -662,10 +597,8 @@ DELETE WHERE {{
             payload = {'update': delete_named}
             resp = requests.post(FUSEKI_UPDATE_URL, data=payload, headers=headers, timeout=15)
             if resp.status_code in [200, 204]:
-                print(f"[DELETE] ✓ Deleted from NAMED graph <http://www.transport-ontology.org/travel>")
+                print(f"[DELETE] ✓ Deleted from named graph")
                 deleted_count += 1
-            else:
-                print(f"[DELETE] Named graph delete returned: {resp.status_code}")
         except Exception as e:
             print(f"[DELETE] Named graph error: {e}")
     
@@ -678,11 +611,10 @@ DELETE WHERE {{
         print(f"\n[DELETE] ✗✗✗ No instances were deleted")
         return False  
 
+
 def update_company(old_name, new_data):
     delete_company(old_name)
     return create_company(new_data)
-
-
 
 
 def cleanup_company_duplicates(name: str):
