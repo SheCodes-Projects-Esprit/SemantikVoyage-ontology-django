@@ -78,55 +78,143 @@ def city_ai_query(request):
                 # Remove any legacy duplicates created by previous AI patterns
                 cleanup_city_duplicates(name_val)
                 added = True
-            # Deterministic DELETE handler: "Delete city where name = X"
+                messages.success(request, f"✅ City '{name_val}' created!")
+                return redirect('city:list')
+            
+            # Deterministic DELETE handler: Enhanced to catch both formats
             if not added:
+                # Try full format first: "delete city where name = X"
                 mdel = re.search(r"delete\s+city\s+where\s+name\s*=\s*['\"]?([\w\-\s]+)['\"]?", user_text, flags=re.IGNORECASE)
+                
+                # If not matched, try simple format: "delete X" or "delete city X"
+                if not mdel:
+                    mdel = re.search(r"delete\s+(?:city\s+)?([\w\-\s]+)$", user_text, flags=re.IGNORECASE)
+                
                 if mdel:
                     targ = mdel.group(1).strip()
+                    
+                    # Prevent deleting common words accidentally
+                    if targ.lower() in ['city', 'cities', 'all', 'everything', 'where', 'name']:
+                        messages.error(request, f"❌ Invalid city name '{targ}'. Please specify a valid city name.")
+                        return redirect('city:list')
+                    
                     if delete_city_by_name(targ):
-                        messages.success(request, f"City '{targ}' deleted!")
+                        messages.success(request, f"✅ City '{targ}' deleted successfully!")
                     else:
-                        messages.warning(request, f"No city named '{targ}' found to delete.")
+                        messages.warning(request, f"⚠️ No city named '{targ}' found to delete.")
                     return redirect('city:list')
-            # Deterministic UPDATE handler: "Update city where name = X set population = 123 area = 45 type = Touristic name = Y"
+            
+            # Deterministic UPDATE handler with validation
             if not added:
-                mupd = re.search(r"update\s+city\s+where\s+name\s*=\s*['\"]?([\w\-\s]+)['\"]?\s*(set|to)\s*(.+)$", user_text, flags=re.IGNORECASE)
+                # Enhanced pattern to catch both formats:
+                # "Update city where name = X set Y" AND "Update X set Y"
+                mupd = re.search(
+                    r"update\s+(?:city\s+where\s+name\s*=\s*)?['\"]?([\w\-\s]+)['\"]?\s+set\s+(.+)$",
+                    user_text,
+                    flags=re.IGNORECASE
+                )
                 if mupd:
                     old = mupd.group(1).strip()
-                    assigns = mupd.group(3).strip()
+                    assigns = mupd.group(2).strip()
                     new_data = {}
+                    
+                    # VALID PROPERTIES FOR CITIES
+                    valid_props = {
+                        'name', 'city', 'cityname',
+                        'population', 'pop',
+                        'area', 'area_km2',
+                        'type',
+                        'ministries', 'numberofministries',
+                        'districts', 'numberofdistricts',
+                        'visitors', 'annualvisitors',
+                        'factories', 'numberoffactories',
+                        'pollution', 'pollutionindex',
+                        'hotels', 'hotelcount',
+                        'commute', 'averagecommutetime',
+                        'governmentseat'
+                    }
+                    
+                    invalid_props = []
+                    
                     for part in re.split(r",|\band\b", assigns, flags=re.IGNORECASE):
                         if '=' in part:
-                            k,v = part.split('=',1)
+                            k, v = part.split('=', 1)
                         elif ':' in part:
-                            k,v = part.split(':',1)
+                            k, v = part.split(':', 1)
                         else:
                             continue
+                        
                         k = k.strip().lower()
                         v = v.strip().strip('"\'')
-                        if k in ['name','city','cityname']:
+                        
+                        # VALIDATE PROPERTY
+                        if k not in valid_props:
+                            invalid_props.append(k)
+                            continue
+                        
+                        # Map to internal field names
+                        if k in ['name', 'city', 'cityname']:
                             new_data['name'] = v
-                        elif k in ['population','pop']:
+                        elif k in ['population', 'pop']:
                             new_data['population'] = v
-                        elif k in ['area','area_km2']:
+                        elif k in ['area', 'area_km2']:
                             new_data['area_km2'] = v
                         elif k in ['type']:
                             vv = v.lower()
-                            if vv.startswith('cap'): new_data['type']='Capital'
-                            elif vv.startswith('met'): new_data['type']='Metropolitan'
-                            elif vv.startswith('tou'): new_data['type']='Touristic'
-                            elif vv.startswith('ind'): new_data['type']='Industrial'
+                            if vv.startswith('cap'): new_data['type'] = 'Capital'
+                            elif vv.startswith('met'): new_data['type'] = 'Metropolitan'
+                            elif vv.startswith('tou'): new_data['type'] = 'Touristic'
+                            elif vv.startswith('ind'): new_data['type'] = 'Industrial'
+                        elif k in ['ministries', 'numberofministries']:
+                            new_data['ministries'] = v
+                        elif k in ['districts', 'numberofdistricts']:
+                            new_data['districts'] = v
+                        elif k in ['visitors', 'annualvisitors']:
+                            new_data['annual_visitors'] = v
+                        elif k in ['factories', 'numberoffactories']:
+                            new_data['factories'] = v
+                        elif k in ['pollution', 'pollutionindex']:
+                            new_data['pollution_index'] = v
+                        elif k in ['hotels', 'hotelcount']:
+                            new_data['hotels'] = v
+                        elif k in ['commute', 'averagecommutetime']:
+                            new_data['commute_minutes'] = v
+                        elif k in ['governmentseat']:
+                            new_data['government_seat'] = v.lower() in ['true', 'yes', '1']
+                    
+                    # Show error if invalid properties found
+                    if invalid_props:
+                        valid_list = ', '.join(sorted(set(['name', 'population', 'area', 'type', 'ministries', 'districts', 'visitors', 'factories', 'pollution', 'hotels', 'commute'])))
+                        messages.error(request, f"❌ Invalid property: '{', '.join(invalid_props)}'. Valid properties for City: {valid_list}")
+                        return redirect('city:list')
+                    
+                    if not new_data:
+                        messages.error(request, "❌ No valid properties found to update.")
+                        return redirect('city:list')
+                    
                     if 'name' not in new_data:
                         new_data['name'] = old
+                    
+                    # Check if city exists
+                    existing = get_city(old)
+                    if not existing:
+                        messages.error(request, f"❌ City '{old}' not found in RDF store.")
+                        return redirect('city:list')
+                    
+                    # Preserve type if not specified
+                    if 'type' not in new_data:
+                        new_data['type'] = existing.get('type', 'Capital')
+                    
                     update_city(old, new_data)
                     cleanup_city_duplicates(new_data['name'])
-                    messages.success(request, f"City '{old}' updated!")
+                    messages.success(request, f"✅ City '{old}' updated successfully!")
                     return redirect('city:list')
+            
+            # Fallback to LLM-generated SPARQL for other update patterns
             if not added:
-                # Run through City-local updater that always targets the ontology graph
                 city_sparql_update(sparql)
-            messages.success(request, 'Update executed successfully.')
-            return redirect('city:list')
+                messages.success(request, '✅ Update executed successfully.')
+                return redirect('city:list')
         else:
             # IMPORTANT: query across ALL graphs so we see ontology + AI + form-created cities
             data = query_all_graphs(sparql)
@@ -180,9 +268,9 @@ def city_ai_query(request):
                 'ai_table_rows': processed,
             })
     except Exception as e:
-        messages.error(request, f"AI/SPARQL error: {e}")
+        messages.error(request, f"❌ AI/SPARQL error: {e}")
         return redirect('city:list')
-
+        
 def city_detail(request, name):
     city = get_city(name)
     if not city:

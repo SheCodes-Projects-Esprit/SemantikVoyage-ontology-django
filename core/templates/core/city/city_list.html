@@ -4,92 +4,312 @@
 {% block body %}
   {% include 'core/partials/_navbar.html' %}
   <div class="container" style="max-width: 1300px; margin: 60px auto;">
-    <form method="post" action="{% url 'city:ai' %}" style="margin-bottom: 1.5rem; background: #fff; border: 2px solid var(--border); border-radius: 12px; padding: 1rem;">
+    
+    <!-- AI Query Box -->
+    <form method="post" action="{% url 'city:ai' %}" style="margin-bottom: 1.5rem; background: #fff; border: 2px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
       {% csrf_token %}
-      <label style="font-weight: 600;">Ask AI to manage cities</label>
-      <p style="font-size: 12px; color: var(--text-muted); margin: .25rem 0 1rem;">Examples: "List all cities", "Add city with name Sousse", "Delete city where name = Tunis"</p>
-      <div style="display:flex; gap:.75rem; align-items:center;">
-        <input type="text" name="q" placeholder="Type a command in English..." style="flex:1; padding:.9rem; border:2px solid var(--border); border-radius:10px;" />
-        <button class="cta-btn" type="submit">Run</button>
-        <a href="{% url 'city:list' %}" class="cta-ghost" style="padding:.8rem 1.2rem;">Clear</a>
+      <label style="font-weight: 600; font-size: 15px; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        🤖 Ask AI to manage cities
+      </label>
+      
+      <p style="font-size: 12px; color: var(--text-muted); margin: .25rem 0 .75rem; line-height: 1.5;">
+        <strong>Examples:</strong> "List all cities", "Add Touristic city Sousse", "Delete city where name = Tunis"<br>
+        <strong>For updates:</strong> "Update Djerbaa set population=55000 area=514" or "Update city where name = Sfax set districts=18"<br>
+        <strong style="color: var(--primary);">Valid properties:</strong> 
+        <span style="font-family: monospace; font-size: 11px; background: var(--bg-muted); padding: 2px 4px; border-radius: 3px;">name, population, area, type, ministries, districts, visitors, hotels, factories, pollution, commute</span>
+      </p>
+      
+      <!-- Input Area -->
+      <div style="display:flex; gap:.75rem; align-items:center; margin-bottom: .75rem;">
+        <input type="text" name="q" id="cityQueryInput" placeholder="Type a command in English..." 
+               style="flex:1; padding:.9rem; border:2px solid var(--border); border-radius:10px; font-size: 14px;" />
+        <button class="cta-btn" type="submit" style="padding: .9rem 1.5rem; white-space: nowrap;">Run</button>
+        <a href="{% url 'city:list' %}" class="cta-ghost" style="padding:.8rem 1.2rem; text-decoration: none; white-space: nowrap;">Clear</a>
+      </div>
+      
+      <!-- Quick Example Buttons -->
+      <div style="display: flex; flex-wrap: wrap; gap: .5rem;">
+        <button type="button" onclick="setQuery('List all cities')" 
+                style="padding: .3rem .7rem; font-size: 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;">
+          📋 List all
+        </button>
+        <button type="button" onclick="setQuery('Add Touristic city Sousse')" 
+                style="padding: .3rem .7rem; font-size: 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;">
+          ➕ Add Sousse
+        </button>
+        <button type="button" onclick="setQuery('Update Djerbaa set population=55000 area=514')" 
+                style="padding: .3rem .7rem; font-size: 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;">
+          ✏️ Update Djerbaa
+        </button>
+        <button type="button" onclick="setQuery('Update Bizerte set factories=75 pollution=60')" 
+                style="padding: .3rem .7rem; font-size: 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;">
+          🏭 Update Bizerte
+        </button>
+        <button type="button" onclick="setQuery('Update Sfax set districts=18 commute=40')" 
+                style="padding: .3rem .7rem; font-size: 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;">
+          🏙️ Update Sfax
+        </button>
+        <button type="button" onclick="setQuery('Delete tryindus')" 
+                style="padding: .3rem .7rem; font-size: 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;">
+          🗑️ Delete tryindus
+        </button>
       </div>
     </form>
-    <div style="display: flex; justify-content: space-between; margin-bottom: 2rem;">
-      <div>
-        <h2>All Cities</h2>
-        <p>RDF Triplestore – Name-based</p>
+
+    <!-- SPARQL Query Display Section (NEW!) -->
+    {% if ai_query and ai_sparql %}
+      <div style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border: 2px solid #475569; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+        <!-- Header (Collapsible) -->
+        <div onclick="toggleSparql()" style="padding: 1rem 1.2rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; transition: background 0.2s;"
+             onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+             onmouseout="this.style.background='transparent'">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span style="font-size: 20px;">⚡</span>
+            <div>
+              <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #10b981;">SPARQL Query Executed</h3>
+              <p style="margin: 0; font-size: 12px; color: #94a3b8; margin-top: 2px;">
+                <strong>Your command:</strong> <span style="color: #e2e8f0;">{{ ai_query }}</span>
+              </p>
+            </div>
+          </div>
+          <svg id="sparqlToggleIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.3s ease;">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+
+        <!-- SPARQL Content (Collapsible) -->
+        <div id="sparqlContent" style="border-top: 1px solid #475569; background: #0f172a; padding: 1.2rem; display: block;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <span style="font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Generated SPARQL</span>
+            <button onclick="copySparql()" id="copyBtn" style="padding: 0.4rem 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; color: #10b981; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                    onmouseover="this.style.background='rgba(16, 185, 129, 0.2)'"
+                    onmouseout="this.style.background='rgba(16, 185, 129, 0.1)'">
+              📋 Copy
+            </button>
+          </div>
+          <pre id="sparqlCode" style="background: #020617; border: 1px solid #334155; border-radius: 8px; padding: 1rem; color: #e2e8f0; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; margin: 0; box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);"><code style="color: #06b6d4;">{{ ai_sparql }}</code></pre>
+          
+          <!-- Query Stats -->
+          <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px; display: flex; gap: 1.5rem; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 16px;">📊</span>
+              <span style="font-size: 12px; color: #94a3b8;">
+                <strong style="color: #10b981;">Type:</strong> 
+                <span style="color: #e2e8f0;">{{ ai_sparql|slice:":6"|upper }}</span>
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 16px;">🎯</span>
+              <span style="font-size: 12px; color: #94a3b8;">
+                <strong style="color: #10b981;">Target:</strong> 
+                <span style="color: #e2e8f0;">City Ontology</span>
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 16px;">✅</span>
+              <span style="font-size: 12px; color: #94a3b8;">
+                <strong style="color: #10b981;">Status:</strong> 
+                <span style="color: #10b981;">Executed</span>
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div style="display: flex; gap: 1rem;">
-        <a href="{% url 'city:create' %}?type=Capital" class="cta-hero">Capital</a>
-        <a href="{% url 'city:create' %}?type=Metropolitan" class="cta-hero">Metropolitan</a>
-        <a href="{% url 'city:create' %}?type=Touristic" class="cta-hero">Touristic</a>
-        <a href="{% url 'city:create' %}?type=Industrial" class="cta-hero">Industrial</a>
+
+      <script>
+        // Toggle SPARQL section
+        function toggleSparql() {
+          const content = document.getElementById('sparqlContent');
+          const icon = document.getElementById('sparqlToggleIcon');
+          if (content.style.display === 'none') {
+            content.style.display = 'block';
+            icon.style.transform = 'rotate(0deg)';
+          } else {
+            content.style.display = 'none';
+            icon.style.transform = 'rotate(-90deg)';
+          }
+        }
+
+        // Copy SPARQL to clipboard
+        function copySparql() {
+          const sparqlText = document.getElementById('sparqlCode').textContent;
+          const btn = document.getElementById('copyBtn');
+          
+          navigator.clipboard.writeText(sparqlText).then(() => {
+            // Success feedback
+            btn.innerHTML = '✅ Copied!';
+            btn.style.background = 'rgba(16, 185, 129, 0.3)';
+            
+            setTimeout(() => {
+              btn.innerHTML = '📋 Copy';
+              btn.style.background = 'rgba(16, 185, 129, 0.1)';
+            }, 2000);
+          }).catch(err => {
+            console.error('Copy failed:', err);
+            btn.innerHTML = '❌ Failed';
+            setTimeout(() => {
+              btn.innerHTML = '📋 Copy';
+            }, 2000);
+          });
+        }
+      </script>
+    {% endif %}
+
+    <!-- Header with Create Buttons -->
+    <div style="display: flex; justify-content: space-between; margin-bottom: 2rem; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 style="margin: 0 0 0.25rem 0; font-size: 32px; font-weight: 900; color: var(--text-primary);">All Cities</h2>
+        <p style="margin: 0; color: var(--text-muted); font-size: 14px;">📊 RDF Triplestore – Name-based identifiers</p>
+      </div>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <a href="{% url 'city:create' %}?type=Capital" class="cta-hero" style="text-decoration: none; padding: .8rem 1.5rem; font-size: 14px;">🏛️ Capital</a>
+        <a href="{% url 'city:create' %}?type=Metropolitan" class="cta-hero" style="text-decoration: none; padding: .8rem 1.5rem; font-size: 14px;">🏙️ Metropolitan</a>
+        <a href="{% url 'city:create' %}?type=Touristic" class="cta-hero" style="text-decoration: none; padding: .8rem 1.5rem; font-size: 14px;">🏖️ Touristic</a>
+        <a href="{% url 'city:create' %}?type=Industrial" class="cta-hero" style="text-decoration: none; padding: .8rem 1.5rem; font-size: 14px;">🏭 Industrial</a>
       </div>
     </div>
 
+    <!-- Messages -->
     {% if messages %}
       <div style="margin-bottom: 1.5rem;">
         {% for message in messages %}
-          <p style="padding: .9rem 1.2rem; border-radius: 10px; font-weight: 600; margin: .5rem 0;
+          <p style="padding: .9rem 1.2rem; border-radius: 10px; font-weight: 600; margin: .5rem 0; display: flex; align-items: start; gap: 0.5rem; animation: slideIn 0.3s ease-out;
                     {% if message.tags == 'error' %}background:#fee2e2; border:1px solid #fecaca; color:#991b1b;
                     {% elif message.tags == 'warning' %}background:#fef3c7; border:1px solid #fde68a; color:#92400e;
                     {% else %}background:#ecfeff; border:1px solid #a5f3fc; color:#155e75;{% endif %}">
-            {{ message }}
+            <span style="font-size: 18px;">{% if message.tags == 'error' %}❌{% elif message.tags == 'warning' %}⚠️{% else %}✅{% endif %}</span>
+            <span style="flex: 1;">{{ message }}</span>
           </p>
         {% endfor %}
       </div>
     {% endif %}
 
+    <!-- Cities Table -->
     {% if cities %}
       <table style="width: 100%; table-layout: fixed; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-        <thead style="background: #1e293b; color: white;">
+        <thead style="background: linear-gradient(135deg, #1e293b, #334155); color: white;">
           <tr>
-            <th style="padding: 1rem; text-align: left;">City</th>
-            <th style="padding: 1rem;">Type</th>
-            <th style="padding: 1rem;">Population</th>
-            <th style="padding: 1rem;">Area</th>
-            <th style="padding: 1rem;">Special</th>
-            <th style="padding: 1rem;">Actions</th>
+            <th style="padding: 1.2rem 1rem; text-align: left; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">City</th>
+            <th style="padding: 1.2rem 1rem; text-align: center; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Type</th>
+            <th style="padding: 1.2rem 1rem; text-align: center; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Population</th>
+            <th style="padding: 1.2rem 1rem; text-align: center; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Area</th>
+            <th style="padding: 1.2rem 1rem; text-align: center; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Special</th>
+            <th style="padding: 1.2rem 1rem; text-align: center; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for c in cities %}
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-              <td style="padding: 1rem; font-weight: 600; font-size: 1.1rem;">
+            <tr style="border-bottom: 1px solid #e2e8f0; transition: all 0.2s;" 
+                onmouseover="this.style.backgroundColor='#f8fafc'" 
+                onmouseout="this.style.backgroundColor='white'">
+              <td style="padding: 1.2rem 1rem; font-weight: 700; font-size: 1.05rem; color: var(--text-primary);">
                 {{ c.name }}
               </td>
-              <td style="padding: 1rem; text-align: center;">
-                <span style="padding: 0.4rem 1rem; border-radius: 20px; font-size: 13px; font-weight: 600;
+              <td style="padding: 1.2rem 1rem; text-align: center;">
+                <span style="padding: 0.4rem 1rem; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block;
                   background: {% if c.type == 'Capital' %}#dbeafe{% elif c.type == 'Metropolitan' %}#d1fae5{% elif c.type == 'Touristic' %}#fef3c7{% else %}#fee2e2{% endif %};
                   color: {% if c.type == 'Capital' %}#1e40af{% elif c.type == 'Metropolitan' %}#065f46{% elif c.type == 'Touristic' %}#92400e{% else %}#991b1b{% endif %};">
+                  {% if c.type == 'Capital' %}🏛️{% elif c.type == 'Metropolitan' %}🏙️{% elif c.type == 'Touristic' %}🏖️{% else %}🏭{% endif %}
                   {{ c.type }}
                 </span>
               </td>
-              <td style="padding: 1rem; text-align: center;">{{ c.population|floatformat:0 }}</td>
-              <td style="padding: 1rem; text-align: center;">{{ c.area|floatformat:1 }} km²</td>
-              <td style="padding: 1rem; font-size: 0.95rem;">
-                {% if c.type == "Capital" %}Ministries: {{ c.numberOfMinistries|default:"?" }}
-                {% elif c.type == "Metropolitan" %}Districts: {{ c.numberOfDistricts|default:"?" }}
-                {% elif c.type == "Touristic" %}Visitors: {{ c.annualVisitors|default:"?" }}
-                {% elif c.type == "Industrial" %}Factories: {{ c.numberOfFactories|default:"?" }}
+              <td style="padding: 1.2rem 1rem; text-align: center; font-weight: 600; color: var(--text-secondary);">
+                {{ c.population|floatformat:0 }}
+              </td>
+              <td style="padding: 1.2rem 1rem; text-align: center; font-weight: 600; color: var(--text-secondary);">
+                {{ c.area|floatformat:1 }} km²
+              </td>
+              <td style="padding: 1.2rem 1rem; font-size: 0.9rem; text-align: center; color: var(--text-secondary);">
+                {% if c.type == "Capital" %}
+                  <span style="font-weight: 600;">🏛️ Ministries:</span> {{ c.numberOfMinistries|default:"—" }}
+                {% elif c.type == "Metropolitan" %}
+                  <span style="font-weight: 600;">🏘️ Districts:</span> {{ c.numberOfDistricts|default:"—" }}
+                {% elif c.type == "Touristic" %}
+                  <span style="font-weight: 600;">✈️ Visitors:</span> {{ c.annualVisitors|default:"—" }}
+                {% elif c.type == "Industrial" %}
+                  <span style="font-weight: 600;">🏭 Factories:</span> {{ c.numberOfFactories|default:"—" }}
                 {% endif %}
               </td>
-              <td style="padding: 1rem; text-align: center;">
+              <td style="padding: 1.2rem 1rem; text-align: center;">
                 <div style="display:inline-flex; gap: .5rem; align-items:center; flex-wrap:wrap; justify-content:center;">
-                  <a href="{% url 'city:detail' c.name %}" class="cta-ghost" style="padding: .35rem .75rem;">View</a>
-                  <a href="{% url 'city:update' c.name %}" style="display:inline-block; padding:.35rem .5rem; color:#1e40af; text-decoration:underline;">Edit</a>
-                  <a href="{% url 'city:delete' c.name %}" style="display:inline-block; padding:.35rem .5rem; border:1px solid #ef4444; border-radius:8px; color:#ef4444;">Delete</a>
+                  <a href="{% url 'city:detail' c.name %}" class="cta-ghost" 
+                     style="padding: .45rem .9rem; font-size: 13px; text-decoration: none; border: 2px solid var(--primary); color: var(--primary); border-radius: 8px; font-weight: 600; transition: all 0.2s;"
+                     onmouseover="this.style.background='rgba(16, 185, 129, 0.1)'" 
+                     onmouseout="this.style.background='transparent'">
+                    👁️ View
+                  </a>
+                  <a href="{% url 'city:update' c.name %}" 
+                     style="display:inline-block; padding:.45rem .9rem; font-size: 13px; color:#1e40af; text-decoration: none; border: 2px solid #1e40af; border-radius: 8px; font-weight: 600; transition: all 0.2s;"
+                     onmouseover="this.style.background='rgba(30, 64, 175, 0.1)'" 
+                     onmouseout="this.style.background='transparent'">
+                    ✏️ Edit
+                  </a>
+                  <a href="{% url 'city:delete' c.name %}" 
+                     style="display:inline-block; padding:.45rem .9rem; font-size: 13px; border:2px solid #ef4444; border-radius:8px; color:#ef4444; text-decoration: none; font-weight: 600; transition: all 0.2s;"
+                     onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'" 
+                     onmouseout="this.style.background='transparent'">
+                    🗑️ Delete
+                  </a>
                 </div>
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
+
+      <!-- Stats Footer -->
+      <div style="margin-top: 1.5rem; padding: 1rem 1.5rem; background: var(--bg-muted); border-radius: var(--radius); color: var(--text-secondary); font-size: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <span>
+          <strong style="color: var(--text-primary);">Total:</strong> {{ cities|length }} cities in RDF store
+        </span>
+        <span style="font-size: 12px; color: var(--text-muted);">
+          ℹ️ All data stored as semantic triples in Apache Jena Fuseki
+        </span>
+      </div>
     {% else %}
-      <div style="text-align: center; padding: 5rem; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px;">
-        <h3>No cities yet</h3>
-        <p>Create your first city!</p>
+      <div style="text-align: center; padding: 5rem 2rem; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px;">
+        <div style="font-size: 64px; margin-bottom: 1rem; opacity: 0.3;">🏙️</div>
+        <h3 style="font-size: 24px; font-weight: 800; color: var(--text-primary); margin-bottom: 0.5rem;">No cities yet</h3>
+        <p style="color: var(--text-secondary); font-size: 16px; margin-bottom: 2rem;">Create your first city using the buttons above!</p>
       </div>
     {% endif %}
   </div>
+
+  <!-- JavaScript for Quick Query Buttons -->
+  <script>
+    function setQuery(query) {
+      const input = document.getElementById('cityQueryInput');
+      if (input) {
+        input.value = query;
+        input.focus();
+      }
+    }
+
+    // Add hover effects to quick buttons
+    document.querySelectorAll('button[onclick^="setQuery"]').forEach(btn => {
+      btn.addEventListener('mouseenter', function() {
+        this.style.background = 'var(--primary)';
+        this.style.color = 'white';
+        this.style.borderColor = 'var(--primary)';
+      });
+      btn.addEventListener('mouseleave', function() {
+        this.style.background = 'var(--bg-muted)';
+        this.style.color = 'var(--text-secondary)';
+        this.style.borderColor = 'var(--border)';
+      });
+    });
+  </script>
+
+  <style>
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
 {% endblock %}
